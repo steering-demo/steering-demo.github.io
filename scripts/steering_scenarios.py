@@ -118,3 +118,40 @@ SCENARIOS = [
         scale=1.0,
     ),
 ]
+
+
+# Layer and coefficient are model-specific: the same direction lands at a different depth in a
+# different network. Each entry was found with `measure_steering.py --sweep` and kept only where
+# the intended contrast showed clearly without the model losing fluency.
+#
+# A model that is not listed falls back to the default in its ScenarioSpec, scaled to the model's
+# depth, which is a starting point for a sweep rather than a tuned setting.
+TUNING = {
+    "Qwen/Qwen2.5-0.5B-Instruct": {
+        "movie-critic": (7, 1.0),
+        "animal-enthusiast": (10, 2.0),
+        "storyteller": (14, 1.0),
+    },
+    "HuggingFaceTB/SmolLM2-135M-Instruct": {
+        "movie-critic": (12, 1.0),
+        "animal-enthusiast": (10, 1.5),
+        "storyteller": (12, 1.0),
+    },
+}
+
+#: Depth of each tuned model, so an untuned model can be given a proportional starting layer.
+REFERENCE_DEPTH = {
+    "Qwen/Qwen2.5-0.5B-Instruct": 24,
+    "HuggingFaceTB/SmolLM2-135M-Instruct": 30,
+}
+
+
+def tuning_for(model_id: str, spec: "ScenarioSpec", depth: int):
+    """(layer, coefficient) for this scenario on this model."""
+    tuned = TUNING.get(model_id, {}).get(spec.id)
+    if tuned:
+        return min(tuned[0], depth), tuned[1]
+    # Untuned: keep the authored coefficient and place the layer at the same relative depth.
+    reference = REFERENCE_DEPTH.get("Qwen/Qwen2.5-0.5B-Instruct", 24)
+    fraction = spec.layer / reference
+    return max(1, min(depth, round(depth * fraction))), spec.scale

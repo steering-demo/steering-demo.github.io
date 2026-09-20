@@ -30,7 +30,7 @@ const { scenarios } = JSON.parse(
   readFileSync(fileURLToPath(new URL('../../src/data/scenarios.generated.json', import.meta.url)), 'utf8'),
 ) as { scenarios: Scenario[] };
 
-const PAGE = '/steering/?live=0';
+const PAGE = '/?live=0';
 
 /** Reads the accessible probability table that mirrors the chart. */
 async function readTable(page: Page): Promise<{ label: string; value: number; neutral: number }[]> {
@@ -216,7 +216,7 @@ test.describe('representation steering showcase', () => {
     for (const alpha of [-2, -1, 0, 1, 2]) {
       await slider.fill(String(alpha));
       await expect(page.getByText(movie.prompt)).toBeVisible();
-      await expect(page.locator('p.font-mono').filter({ hasText: movie.prefix }).first()).toBeVisible();
+      await expect(page.getByText(movie.prefix, { exact: false }).first()).toBeVisible();
     }
   });
 

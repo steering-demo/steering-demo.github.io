@@ -13,9 +13,14 @@ import { ALPHAS_KEY, type Candidate, type Scenario, type SteeringState } from '.
 
 /** Gradio 5 serves the API under /gradio_api; Gradio 4 serves it at the root. */
 const API_PREFIXES = ['/gradio_api/call', '/call'] as const;
-const FUNCTION_NAME = 'run_scenario';
+/** Endpoints the Space exposes. See `space/app.py`. */
+const FN_SCENARIO = 'run_scenario';
 /** Bypasses the Space's cache and spends GPU time on a real run. */
-const FUNCTION_NAME_FRESH = 'run_scenario_fresh';
+const FN_SCENARIO_FRESH = 'run_scenario_fresh';
+/** A scenario on a chosen model. */
+const FN_MODEL = 'run_model';
+/** A visitor's own prompt, steered along an existing scenario's direction. */
+const FN_CUSTOM = 'run_custom';
 
 export interface LiveResult {
   scenario: Scenario;
@@ -162,19 +167,41 @@ function assertUsable(payload: SpacePayload): void {
   }
 }
 
+interface CallOptions {
+  fresh: boolean;
+  model?: string;
+  prompt?: string;
+  promptPrefix?: string;
+}
+
+/** Picks the endpoint and argument list that match what the caller asked for. */
+function planCall(scenarioId: string, options: CallOptions): { fn: string; data: unknown[] } {
+  if (options.prompt !== undefined || options.promptPrefix !== undefined) {
+    return {
+      fn: FN_CUSTOM,
+      data: [options.prompt ?? '', options.promptPrefix ?? '', scenarioId, options.model ?? ''],
+    };
+  }
+  if (options.model) {
+    return { fn: FN_MODEL, data: [scenarioId, options.model, options.fresh ? '1' : ''] };
+  }
+  return { fn: options.fresh ? FN_SCENARIO_FRESH : FN_SCENARIO, data: [scenarioId] };
+}
+
 async function callOnce(
   base: string,
   prefix: string,
   scenarioId: string,
   signal: AbortSignal,
-  fresh: boolean,
+  options: CallOptions,
 ): Promise<SpacePayload> {
-  const endpoint = `${base}${prefix}/${fresh ? FUNCTION_NAME_FRESH : FUNCTION_NAME}`;
+  const { fn, data } = planCall(scenarioId, options);
+  const endpoint = `${base}${prefix}/${fn}`;
 
   const started = await fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ data: [scenarioId] }),
+    body: JSON.stringify({ data }),
     signal,
   });
   // 404/405 means this Gradio version serves the API elsewhere; anything else is a real failure.
@@ -209,7 +236,20 @@ export async function runLiveScenario(
     signal,
     timeoutMs = 120_000,
     fresh = false,
-  }: { signal?: AbortSignal; timeoutMs?: number; fresh?: boolean } = {},
+    model,
+    prompt,
+    prefix,
+  }: {
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    fresh?: boolean;
+    /** Hugging Face id of the model to run. Omitted, the Space uses its default. */
+    model?: string;
+    /** A visitor's own prompt. Omitted, the scenario's own prompt is used. */
+    prompt?: string;
+    /** A visitor's own response prefix. */
+    prefix?: string;
+  } = {},
 ): Promise<LiveResult> {
   const base = normalizeBase(spaceUrl);
   const controller = new AbortController();
@@ -222,11 +262,16 @@ export async function runLiveScenario(
     const order = knownPrefix
       ? [knownPrefix, ...API_PREFIXES.filter((p) => p !== knownPrefix)]
       : [...API_PREFIXES];
-    for (const prefix of order) {
+    for (const apiPrefix of order) {
       try {
-        const payload = await callOnce(base, prefix, scenarioId, controller.signal, fresh);
+        const payload = await callOnce(base, apiPrefix, scenarioId, controller.signal, {
+          fresh,
+          model,
+          prompt,
+          promptPrefix: prefix,
+        });
         assertUsable(payload);
-        knownPrefix = prefix;
+        knownPrefix = apiPrefix;
         return {
           scenario: toScenario(payload),
           model: payload.model ?? 'unknown model',

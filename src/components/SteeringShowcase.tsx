@@ -3,11 +3,13 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useAnimatedNumbers, useDebounced, usePrefersReducedMotion } from '../lib/hooks';
 import { TOKEN_OTHER, candidateColor } from '../lib/palette';
 import { runLiveScenario } from '../lib/live';
+import { DEFAULT_LIVE_MODEL } from '../lib/models';
 import { NEUTRAL_INDEX, formatAlpha, type Provenance, type Scenario } from '../lib/types';
 import { AlphaSlider } from './AlphaSlider';
 import { CompletionPanel } from './CompletionPanel';
 import { HowItWorks } from './HowItWorks';
-import { LiveStatusBar, type LiveStatus } from './LiveStatus';
+import { LiveControls, type LiveState } from './LiveControls';
+import { PromptPanel } from './PromptPanel';
 import { ScenarioTabs } from './ScenarioTabs';
 import { SchematicSpace } from './SchematicSpace';
 import { TokenChart, type ChartRow } from './TokenChart';
@@ -35,76 +37,85 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   const [liveModel, setLiveModel] = useState<string>();
   const [liveCached, setLiveCached] = useState(false);
   const [liveAge, setLiveAge] = useState(0);
-  const [liveStatus, setLiveStatus] = useState<LiveStatus>(spaceUrl ? 'loading' : 'off');
+  const [liveState, setLiveState] = useState<LiveState>('idle');
   const [liveError, setLiveError] = useState<string>();
-  const [attempt, setAttempt] = useState(0);
-  const [forceFresh, setForceFresh] = useState(false);
+  const [model, setModel] = useState(DEFAULT_LIVE_MODEL);
+  const [draft, setDraft] = useState<{ prompt: string; prefix: string } | null>(null);
+  const [shownKey, setShownKey] = useState<string | null>(null);
   const panelId = useId();
 
   const recorded = useMemo(
     () => scenarios.find((item) => item.id === scenarioId) ?? scenarios[0],
     [scenarios, scenarioId],
   );
-  // The recorded measurement is always on screen; a live result replaces it when one arrives.
-  const scenario = live[recorded.id] ?? recorded;
+
+  const prompt = draft?.prompt ?? recorded.prompt;
+  const prefix = draft?.prefix ?? recorded.prefix;
+  const edited = prompt !== recorded.prompt || prefix !== recorded.prefix;
+
+  // `?live=0` hides the live controls entirely, which keeps the page purely static for anyone who
+  // wants that - and keeps the browser tests deterministic.
+  const [liveOptOut, setLiveOptOut] = useState(false);
+  useEffect(() => {
+    setLiveOptOut(new URLSearchParams(window.location.search).get('live') === '0');
+  }, []);
+  const liveAvailable = Boolean(spaceUrl) && !liveOptOut;
+
+  /** Identifies one live result: model, direction, and the exact text it was measured on. */
+  const runKey = `${model}|${recorded.id}|${prompt}|${prefix}`;
+
+  // The recorded measurement is always on screen until a live result for this exact run arrives.
+  const scenario = (shownKey && live[shownKey]) || recorded;
 
   const inFlight = useRef<AbortController | null>(null);
-  useEffect(() => {
-    if (!spaceUrl) return;
-    // `?live=0` keeps the page on the recorded measurements - handy for a slow connection, and
-    // what the browser tests use to stay deterministic.
-    if (new URLSearchParams(window.location.search).get('live') === '0') {
-      setLiveStatus('off');
-      return;
-    }
-    if (live[recorded.id]) {
-      setLiveStatus('live');
-      return;
-    }
+  useEffect(() => () => inFlight.current?.abort(), []);
 
-    const controller = new AbortController();
+  const runLive = useCallback(() => {
+    if (!spaceUrl) return;
+    const key = runKey;
     inFlight.current?.abort();
+    const controller = new AbortController();
     inFlight.current = controller;
-    setLiveStatus('loading');
+    setLiveState('running');
     setLiveError(undefined);
 
-    runLiveScenario(spaceUrl, recorded.id, { signal: controller.signal, fresh: forceFresh })
+    runLiveScenario(spaceUrl, recorded.id, {
+      signal: controller.signal,
+      // Re-running the same text is a deliberate act, so bypass the Space's cache unless the
+      // visitor changed something, in which case a cache hit is a genuine answer.
+      fresh: !edited && shownKey === key,
+      model,
+      prompt: edited ? prompt : undefined,
+      prefix: edited ? prefix : undefined,
+    })
       .then((result) => {
         if (controller.signal.aborted) return;
-        setLive((current) => ({ ...current, [recorded.id]: result.scenario }));
+        setLive((current) => ({ ...current, [key]: result.scenario }));
+        setShownKey(key);
         setLiveModel(result.model);
         setLiveCached(result.cached);
         setLiveAge(result.ageSeconds);
-        setLiveStatus('live');
+        setLiveState('live');
+        setStateIndex(NEUTRAL_INDEX);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setLiveError(error instanceof Error ? error.message : String(error));
-        setLiveStatus('error');
+        setLiveState('error');
       });
+  }, [spaceUrl, runKey, recorded.id, model, edited, prompt, prefix, shownKey]);
 
-    return () => controller.abort();
-    // `forceFresh` is read at call time on purpose: it must not re-trigger the effect by itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceUrl, recorded.id, live, attempt]);
-
-  const requestLive = useCallback(
-    (fresh: boolean) => {
-      setForceFresh(fresh);
-      setLive((current) => {
-        const next = { ...current };
-        delete next[recorded.id];
-        return next;
-      });
-      setAttempt((value) => value + 1);
-    },
-    [recorded.id],
-  );
-  const retryLive = useCallback(() => requestLive(false), [requestLive]);
-  const recomputeLive = useCallback(() => requestLive(true), [requestLive]);
+  const revertToRecorded = useCallback(() => {
+    inFlight.current?.abort();
+    setDraft(null);
+    setShownKey(null);
+    setLiveState('idle');
+    setLiveError(undefined);
+    setStateIndex(NEUTRAL_INDEX);
+  }, []);
 
   const state = scenario.states[stateIndex] ?? scenario.states[NEUTRAL_INDEX];
-  const isLive = liveStatus === 'live' && Boolean(live[recorded.id]);
+  const isLive = liveState === 'live';
   const neutral = scenario.states[NEUTRAL_INDEX];
   const candidateCount = scenario.candidates.length;
   const colors = scenario.candidates.map((_, index) => candidateColor(index, candidateCount));
@@ -166,24 +177,33 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   const atNeutral = stateIndex === NEUTRAL_INDEX;
 
   function selectScenario(id: string) {
+    inFlight.current?.abort();
     setScenarioId(id);
     setStateIndex(NEUTRAL_INDEX);
+    setDraft(null);
+    setShownKey(null);
+    setLiveState('idle');
+    setLiveError(undefined);
   }
 
   return (
     <div className="min-w-0">
       <div className="mb-4">
-        <LiveStatusBar
+        <LiveControls
           provenance={provenance}
-          status={liveStatus}
+          available={liveAvailable}
+          state={liveState}
+          model={model}
+          onModelChange={setModel}
           liveModel={liveModel}
-          error={liveError}
-          layer={scenario.layer}
-          coefficient={scenario.coefficient}
           cached={liveCached}
           ageSeconds={liveAge}
-          onRetry={retryLive}
-          onRecompute={recomputeLive}
+          error={liveError}
+          edited={edited}
+          layer={scenario.layer}
+          coefficient={scenario.coefficient}
+          onRun={runLive}
+          onRevert={revertToRecorded}
         />
       </div>
 
@@ -200,27 +220,15 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
         aria-labelledby={`tab-${scenario.id}`}
         className="mt-4 space-y-4"
       >
-        {/* 3. The fixed halves of the input, kept visually apart from what is generated. */}
-        <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div>
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-                Prompt <span className="font-normal normal-case tracking-normal">(fixed)</span>
-              </h2>
-              <p className="mt-2 text-[15px] text-[var(--color-ink-2)]">{scenario.prompt}</p>
-            </div>
-            <div className="border-t border-[var(--color-line)] pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-                Response prefix{' '}
-                <span className="font-normal normal-case tracking-normal">(fixed)</span>
-              </h2>
-              <p className="mt-2 font-mono text-[15px] text-[var(--color-ink-2)]">
-                {scenario.prefix}
-                <span aria-hidden="true" className="text-[var(--color-line-strong)]"> &#9646;</span>
-              </p>
-            </div>
-          </div>
-        </section>
+        {/* 3. The two halves of the input the slider never touches. */}
+        <PromptPanel
+          prompt={prompt}
+          prefix={prefix}
+          onChange={liveAvailable ? setDraft : null}
+          edited={edited}
+          maxPrompt={300}
+          maxPrefix={100}
+        />
 
         {/* 4. The intervention itself. */}
         <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">

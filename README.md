@@ -14,13 +14,16 @@ The page runs in two modes, and always tells the visitor which one it is in:
 | Mode | What happens |
 | --- | --- |
 | **Recorded** (default) | Measurements taken by `scripts/measure_steering.py` are bundled into the page. Instant, no network, works forever. |
-| **Live** | If `PUBLIC_STEERING_SPACE` is set, the page asks a Hugging Face Space for each scenario during the visit and swaps the results in. The Space runs the real model; because the computation is deterministic it caches the answer, so most visits cost no GPU time at all. |
+| **Live** (on request) | With `PUBLIC_STEERING_SPACE` set, **Run it live on the GPU** asks a Hugging Face Space to measure the scenario during the visit. You can also pick a different model, or rewrite the prompt and prefix and measure your own. |
 
-Live never gates the experience: the recorded measurements render immediately and stay on screen
-if the Space is asleep, out of quota, or unreachable. One request per scenario computes all nine
-alpha states at once, so the slider stays instant and local either way. `?live=0` opts out.
+**A live run is opt-in.** Firing one on every page load spent the visitor's ZeroGPU allowance to
+re-derive numbers the page already ships, and turned an ordinary quota limit into an error message
+on a page that was working perfectly well. Nothing is fetched until someone asks; the recorded
+measurements are on screen from the first paint and stay there if a live run fails. One request
+computes all nine alpha states at once, so the slider stays instant and local either way.
+`?live=0` hides the live controls entirely.
 
-- **Route:** `/steering/`
+- **Route:** `/` (`/steering/` redirects there)
 - **Content source:** [`content/scenarios.md`](content/scenarios.md) (generated — see below)
 - **Stack:** Astro (static output), React + TypeScript for the island, Tailwind CSS v4, Recharts
 - **Measurement:** PyTorch + transformers, offline or in a Gradio Space on ZeroGPU
@@ -65,6 +68,18 @@ needed to build or serve the site.
 | `python scripts/measure_steering.py` | measure the model and rewrite `content/scenarios.md` |
 | `python scripts/measure_steering.py --sweep` | re-tune the layer and coefficient for a model |
 | `./scripts/build-space.sh` | sync the shared modules into `space/` and print deploy steps |
+
+## What a visitor can do
+
+- **Drag the slider** through nine steering strengths and watch the token distribution and the
+  sentence move together.
+- **Switch scenario** with the tabs.
+- **Run it live on the GPU** to measure the scenario again, right now, on a real model.
+- **Pick a model** &mdash; the same scenarios steer differently on different networks, and the
+  layer and coefficient change with them.
+- **Write their own prompt and prefix** and measure that. The steering direction is still the
+  selected scenario's, re-derived in the context of the new prompt. Results vary, which the
+  explainer says plainly: a direction found for one question does not always transfer.
 
 ## Editing the content
 
@@ -246,6 +261,12 @@ Notes worth knowing before relying on it:
   The page never claims more than it did: a stored result reads "Computed on Hugging Face &hellip;,
   12 min ago" rather than "just now", and **Run it again on the GPU** forces a real run for anyone
   who wants to watch it happen.
+- **Models are listed in two places.** `space/app.py` decides what the Space will load;
+  `src/lib/models.ts` decides what the page offers. They are kept in step by hand so that opening
+  the page costs no network request, and the Space falls back to its default for anything it does
+  not recognise, so a mismatch degrades rather than breaks.
+- **Custom prompts are not cached across visitors** in any useful way, so each one costs a real
+  run. At roughly 8s per run that is about fifteen per visitor before the free allowance is gone.
 - **A free Space sleeps.** The first request after idling starts the container and loads the
   model, so the client allows a generous timeout and falls back cleanly.
 - **Gradio 4 and 5 serve the API at different paths.** The client tries

@@ -73,8 +73,15 @@ function RowShape({ x = 0, y = 0, width = 0, height = 0, payload, background, pl
   );
 }
 
+/** Longest token that fits the label gutter at 13px monospace before it would be clipped. */
+const MAX_LABEL_CHARS = 11;
+
 function TokenTick({ x = 0, y = 0, payload, rows }: { x?: number; y?: number; payload?: { value?: string }; rows: ChartRow[] }) {
   const row = rows.find((r) => r.label === payload?.value);
+  const full = payload?.value ?? '';
+  // A visitor's own prompt can produce a long token. Truncating keeps the axis aligned; the exact
+  // token is still available in full from the accessible table below the chart.
+  const shown = full.length > MAX_LABEL_CHARS ? `${full.slice(0, MAX_LABEL_CHARS - 1)}\u2026` : full;
   return (
     <text
       x={x}
@@ -85,7 +92,8 @@ function TokenTick({ x = 0, y = 0, payload, rows }: { x?: number; y?: number; pa
       fontFamily={row?.muted ? 'var(--font-sans)' : 'var(--font-mono)'}
       fill={row?.muted ? INK_3 : INK_2}
     >
-      {payload?.value}
+      <title>{full}</title>
+      {shown}
     </text>
   );
 }

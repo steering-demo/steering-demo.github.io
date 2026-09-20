@@ -51,6 +51,17 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
         </p>
 
         <p>
+          <strong className="font-medium text-[var(--color-ink)]">Your own prompt.</strong> With a
+          live service configured, the prompt and prefix above are editable and{' '}
+          <strong className="font-medium text-[var(--color-ink)]">Run my prompt on the GPU</strong>{' '}
+          measures them for real. The steering direction is still the selected scenario&rsquo;s,
+          re-derived from its contrast examples in the context of your prompt. Expect mixed
+          results: a direction found for one question does not always transfer, and a prefix that
+          does not end on an intensifier usually lands the slider on a grammatical word instead of
+          a meaningful one.
+        </p>
+
+        <p>
           Each prefix ends on an intensifier &mdash; &ldquo;was absolutely&rdquo;, &ldquo;opened
           rather&rdquo; &mdash; so the very next token is the one carrying the meaning. Without
           that, the likeliest next word is a grammatical one like &ldquo;a&rdquo;, and the
@@ -85,9 +96,9 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
 
         <p className="text-[var(--color-ink-3)]">
           The prompts, prefixes, direction labels and takeaways are written by hand; the candidate
-          tokens, probabilities and continuations are not. This is a deliberately small model, fast
-          and cheap to run &mdash; an illustration of the mechanism, not a result about how larger
-          systems behave.
+          tokens, probabilities and continuations are not. The models on offer are deliberately
+          small, fast and cheap to run, and they steer differently from one another &mdash; which
+          is itself worth a look. None of this is a result about how larger systems behave.
           {provenance ? ` Measured ${provenance.measured}.` : ''}
         </p>
 

@@ -89,6 +89,39 @@ Tried, with the scenarios as written:
 To use Gemma, accept the licence at its model page, run `huggingface-cli login`, then
 `python scripts/measure_steering.py --model google/gemma-3-270m-it --sweep`.
 
+## Adding a scenario
+
+The three that ship share a shape, and it is the shape that makes them work:
+
+1. **A concrete axis** the model already has words for &mdash; sentiment, cat versus dog, calm
+   versus dramatic. Abstract axes ("modest versus confident") do not separate cleanly at 0.5B.
+2. **A prefix ending on an intensifier**, so the charted position is forced to be the meaningful
+   word: "was absolutely", "opened rather".
+3. **Strong collocations at both poles**: "absolutely terrible" and "absolutely captivating" are
+   both things the model expects to say.
+4. **Six contrast continuations per pole**, written as natural completions of that exact prefix.
+
+Then sweep and look at the winners:
+
+```bash
+python scripts/measure_steering.py --sweep
+```
+
+Keep it only if three distinct, real words win across the slider and the top-1 probabilities are
+healthy. For reference, four designs were tried and rejected for this page:
+
+| Attempt | Axis | Why it was dropped |
+| --- | --- | --- |
+| Forecaster | Hedged / Certain | winners were `" impossible"`, `" highly"`, `" scheduled"` — no clean axis |
+| Job applicant | Modest / Confident | `" good"` / `" strong"` / `" unique"` — the positive pole never read as confidence |
+| Weather reporter | Freezing / Sweltering | only one configuration produced three word winners, and it was `" snow"` / `" clear"` / `" perfect"` |
+| Traveller | Restful / Adventurous | best was `" boring"` / `" delightful"` / `" epic"` at top-1 0.06, too fragile to ship |
+| Food critic | Bland / Fiery | the closest miss: `" bland"` at 0.69 and `" delicious"` at 0.63 are excellent, but the hot pole never produced a whole word — it landed on the fragment `" over"` (as in *overwhelming*). Changing the prefix to "was seriously" made the neutral pole worse. |
+
+A weak scenario undercuts the page more than a missing one adds to it. The prompt box is the
+better answer to "more examples": it lets a visitor try any of these themselves, and see for
+themselves when a direction fails to transfer.
+
 ## Reproducing
 
 ```bash

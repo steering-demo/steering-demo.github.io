@@ -10,6 +10,8 @@ const { scenarios } = JSON.parse(
 ) as {
   scenarios: {
     id: string;
+    prompt: string;
+    prefix: string;
     candidates: { token: string }[];
     states: { continuation: string }[];
   }[];
@@ -19,7 +21,6 @@ const ALPHAS = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
 const LIVE_MODEL = 'stub-org/Tiny-Live-1B';
 const LIVE_SENTENCE = 'gloriously, and the whole corridor filled with light.';
 
-/** A Space response that is obviously distinguishable from the bundled measurements. */
 function livePayload(scenarioId: string) {
   return {
     id: scenarioId,
@@ -34,6 +35,8 @@ function livePayload(scenarioId: string) {
     scale: 3,
     model: LIVE_MODEL,
     device: 'cuda:0',
+    cached: false,
+    age_seconds: 0,
     states: ALPHAS.map((alpha) => ({
       alpha,
       percents: [55, 20, 5],
@@ -44,19 +47,23 @@ function livePayload(scenarioId: string) {
   };
 }
 
-/**
- * Intercepts the Space. `mode` decides whether the live call succeeds, fails, or hangs.
- *
- * `delayMs` holds the result back so the pre-live state can be asserted deterministically - a
- * real Space takes seconds, an intercepted one would otherwise answer before the first paint.
- */
-async function stubSpace(page: Page, mode: 'ok' | 'fail' | 'hang', delayMs = 0) {
+interface Recorded {
+  calls: { fn: string; data: unknown[] }[];
+}
+
+/** Intercepts the Space and records which endpoint the page asked for. */
+async function stubSpace(page: Page, mode: 'ok' | 'fail', delayMs = 0): Promise<Recorded> {
+  const recorded: Recorded = { calls: [] };
   await page.route(`${SPACE_STUB}/**`, async (route) => {
-    if (mode === 'hang') return; // never fulfilled: the client must time out on its own
+    const url = route.request().url();
     if (mode === 'fail') return route.fulfill({ status: 503, body: 'asleep' });
 
-    const url = route.request().url();
-    if (url.endsWith('/run_scenario')) {
+    const match = /\/call\/([a-z_]+)(?:\/|$)/.exec(url);
+    if (url.match(/\/call\/[a-z_]+$/)) {
+      recorded.calls.push({
+        fn: match?.[1] ?? '?',
+        data: JSON.parse(route.request().postData() ?? '{}')?.data ?? [],
+      });
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -64,85 +71,112 @@ async function stubSpace(page: Page, mode: 'ok' | 'fail' | 'hang', delayMs = 0) 
       });
     }
     if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
-    const scenarioId = JSON.parse(route.request().postData() ?? '{"data":["movie-critic"]}')
-      ?.data?.[0] ?? 'movie-critic';
+    const scenarioId = recorded.calls.at(-1)?.data?.[0];
     return route.fulfill({
       status: 200,
       contentType: 'text/event-stream',
-      body: `event: complete\ndata: ${JSON.stringify([JSON.stringify(livePayload(scenarioId))])}\n\n`,
+      body: `event: complete\ndata: ${JSON.stringify([
+        JSON.stringify(livePayload(typeof scenarioId === 'string' ? scenarioId : 'movie-critic')),
+      ])}\n\n`,
     });
   });
+  return recorded;
 }
 
-test.describe('live results from the Space', () => {
-  test('shows the recorded measurement first, then replaces it with the live run', async ({ page }) => {
-    await stubSpace(page, 'ok', 1200);
-    await page.goto('/steering/');
-
-    // The bundled measurement is readable and usable while the live call is still in flight.
+test.describe('the live Space', () => {
+  test('is not called at all until the visitor asks', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok');
+    await page.goto('/');
     await expect(page.locator('#alpha-slider')).toHaveValue('0');
-    await expect(page.getByText(/Running it live/)).toBeVisible();
-    await expect(page.getByText(/Measured from/)).toBeVisible();
-    await expect(page.getByText(scenarios[0].states[4].continuation, { exact: false }).first()).toBeVisible();
-
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(LIVE_MODEL.split("/").pop()!).first()).toBeVisible();
-    await expect(page.getByText(LIVE_SENTENCE, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(/layer 42/).first()).toBeVisible();
-  });
-
-  test('keeps the recorded measurement when the Space is unavailable', async ({ page }) => {
-    await stubSpace(page, 'fail');
-    await page.goto('/steering/');
-
-    await expect(page.getByText(/Live run unavailable/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/Measured from/)).toBeVisible();
-
-    // The page is still fully usable on the bundled data.
-    const movie = scenarios[0];
-    await page.getByRole('button', { name: /Set alpha to minus 2\.0/ }).click();
-    await expect(page.locator('#alpha-slider')).toHaveValue('-2');
-    const token = movie.candidates[0].token.trim();
-    await expect(page.getByText(token, { exact: false }).first()).toBeVisible();
-  });
-
-  test('does not call the Space at all when live is switched off', async ({ page }) => {
-    const attempts: string[] = [];
-    await page.route(`${SPACE_STUB}/**`, (route) => {
-      attempts.push(route.request().url());
-      return route.fulfill({ status: 503, body: 'nope' });
-    });
-    await page.goto('/steering/?live=0');
     await page.waitForTimeout(1500);
 
-    expect(attempts).toEqual([]);
+    // Loading the page must not spend anyone's GPU quota.
+    expect(recorded.calls).toEqual([]);
     await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Run it live on the GPU/ })).toBeVisible();
   });
 
-  test('the slider stays local after the live results land', async ({ page }) => {
-    const calls: string[] = [];
-    await page.route(`${SPACE_STUB}/**`, async (route) => {
-      calls.push(route.request().url());
-      const url = route.request().url();
-      if (url.endsWith('/run_scenario')) {
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event_id: 'e' }) });
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: `data: ${JSON.stringify([JSON.stringify(livePayload('movie-critic'))])}\n\n`,
-      });
-    });
-    await page.goto('/steering/');
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 15_000 });
+  test('runs on demand and swaps the results in', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok', 700);
+    await page.goto('/');
+    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
 
-    const before = calls.length;
-    const slider = page.locator('#alpha-slider');
-    await slider.focus();
+    await expect(page.getByRole('button', { name: /Running on the GPU/ })).toBeVisible();
+    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(LIVE_SENTENCE, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(/layer 42/).first()).toBeVisible();
+    expect(recorded.calls[0].fn).toBe('run_model');
+  });
+
+  test('sends the chosen model', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok');
+    await page.goto('/');
+    await page.getByLabel('Model').selectOption({ index: 1 });
+    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
+    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+
+    expect(recorded.calls[0].data[1]).toContain('SmolLM2');
+  });
+
+  test('sends an edited prompt to the custom endpoint', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok');
+    await page.goto('/');
+    await page.getByLabel(/^Prompt/).fill('Describe a rainy afternoon.');
+    await expect(page.getByRole('button', { name: /Run my prompt on the GPU/ })).toBeVisible();
+    await page.getByRole('button', { name: /Run my prompt on the GPU/ }).click();
+    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+
+    expect(recorded.calls[0].fn).toBe('run_custom');
+    expect(recorded.calls[0].data[0]).toBe('Describe a rainy afternoon.');
+    expect(recorded.calls[0].data[2]).toBe(scenarios[0].id);
+  });
+
+  test('reports a failed run only because it was asked for', async ({ page }) => {
+    await stubSpace(page, 'fail');
+    await page.goto('/');
+    // Nothing is wrong before the visitor asks for anything.
+    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByText(/did not finish|replied 503/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
+    await expect(page.getByText(/replied 503|did not finish/).first()).toBeVisible({ timeout: 20_000 });
+
+    // The recorded measurement is untouched and the page still works.
+    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await page.getByRole('button', { name: /Set alpha to minus 2\.0/ }).click();
+    await expect(page.locator('#alpha-slider')).toHaveValue('-2');
+  });
+
+  test('goes back to the recorded run on request', async ({ page }) => {
+    await stubSpace(page, 'ok');
+    await page.goto('/');
+    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
+    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: /Back to the recorded run/ }).click();
+    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByText(scenarios[0].states[4].continuation, { exact: false }).first()).toBeVisible();
+  });
+
+  test('the slider stays local after a live run', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok');
+    await page.goto('/');
+    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
+    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+
+    const before = recorded.calls.length;
+    await page.locator('#alpha-slider').focus();
     for (let i = 0; i < 8; i += 1) await page.keyboard.press('ArrowRight');
     await page.waitForTimeout(600);
+    expect(recorded.calls.length).toBe(before);
+  });
 
-    // Scrubbing the whole range must not produce another request.
-    expect(calls.length).toBe(before);
+  test('hides the live controls entirely with ?live=0', async ({ page }) => {
+    const recorded = await stubSpace(page, 'ok');
+    await page.goto('/?live=0');
+    await page.waitForTimeout(1200);
+    expect(recorded.calls).toEqual([]);
+    await expect(page.getByRole('button', { name: /Run it live/ })).toHaveCount(0);
+    await expect(page.getByText(/Measured from/)).toBeVisible();
   });
 });
