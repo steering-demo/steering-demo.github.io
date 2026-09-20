@@ -2,13 +2,15 @@
 Representation steering, shared by the offline measurement script and the live Space.
 
 The intervention is the one the page describes: derive a direction v from contrastive examples,
-then add alpha * v to the residual stream at one layer while the model runs.
+then add a signed multiple of it to the residual stream at one layer while the model runs.
 
     v = mean(activations | positive examples) - mean(activations | negative examples)
-    h' = h + alpha * scale * v
+    h' = h + alpha * c * v
 
-Nothing here is specific to a hosting environment, so the Space and the offline pipeline
-produce identical numbers from identical inputs.
+Nothing here is specific to a hosting environment, so the Space and the offline pipeline run the
+same procedure. That is not a claim that they produce the same numbers: they run on different
+hardware with different kernels, and no comparison between them has been made. See the "what is
+not established" section of docs/MEASUREMENT.md.
 """
 
 from dataclasses import dataclass, field

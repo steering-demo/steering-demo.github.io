@@ -11,8 +11,10 @@ Greedy decoding over a fixed prompt is deterministic, so results are cached per
 only a real measurement spends the caller's ZeroGPU quota.
 
 Deployed as a Gradio Space on ZeroGPU. `steering_core.py` and `steering_scenarios.py` are copied
-verbatim from the site repository by `scripts/build-space.sh`, so the Space and the offline
-measurement pipeline produce identical numbers.
+verbatim from the site repository by `scripts/build-space.sh`, so the Space runs the same
+procedure as the offline pipeline. Identical code is not identical output - this runs on a GPU and
+the recorded measurements were taken on a CPU - and results from here are labelled as computed by
+the Space rather than presented as the recorded ones.
 """
 
 import hashlib

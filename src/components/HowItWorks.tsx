@@ -131,7 +131,7 @@ function Origin({
     return (
       <>
         The Space had already measured this exact configuration and replayed the result it stored{' '}
-        {age ?? 'earlier'}, rather than spending GPU time to produce the same numbers again.
+        {age ?? 'earlier'}, rather than spending GPU time on a run it had already done.
       </>
     );
   }
