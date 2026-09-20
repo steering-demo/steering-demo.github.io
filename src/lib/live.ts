@@ -25,11 +25,23 @@ const FN_CUSTOM = 'run_custom';
 export interface LiveResult {
   scenario: Scenario;
   model: string;
+  /** Pinned weights the Space ran. Reported so the page can name the revision, not just the id. */
+  revision?: string;
   device: string;
   /** True when the Space served a stored result rather than running the model again. */
   cached: boolean;
+  /**
+   * True when that stored result was served because a fresh run *failed* - most often an
+   * exhausted GPU quota. It is still a real measurement, but the run the visitor asked for did
+   * not happen, and the page has to say so rather than presenting it as a cache hit.
+   */
+  staleCache: boolean;
+  /** Why the fresh run failed, when the Space fell back to a stored result. */
+  cacheNote?: string;
   /** How old that stored result is, in seconds. 0 for a fresh run. */
   ageSeconds: number;
+  /** Scenario whose contrast examples defined the direction, as the Space applied it. */
+  direction?: string;
 }
 
 interface SpacePayload {
@@ -41,11 +53,17 @@ interface SpacePayload {
   prefix: string;
   takeaway: string;
   candidates: string[];
+  /** Token ids behind `candidates`, when the Space is new enough to send them. */
+  candidate_ids?: number[];
   layer: number;
   scale: number;
   model?: string;
+  revision?: string;
   device?: string;
   cached?: boolean;
+  stale?: boolean;
+  note?: string;
+  direction?: string;
   age_seconds?: number;
   error?: string;
   states: {
@@ -53,6 +71,8 @@ interface SpacePayload {
     percents: number[];
     other: number;
     selected: string;
+    /** Index into `candidates`. Authoritative when present; `selected` is a display string. */
+    selected_index?: number;
     continuation: string;
     truncated?: boolean;
   }[];
@@ -122,7 +142,14 @@ function toScenario(payload: SpacePayload): Scenario {
   });
 
   const states: SteeringState[] = payload.states.map((state, index) => {
-    const selectedIndex = Math.max(0, payload.candidates.indexOf(state.selected));
+    // The index is authoritative: two candidates can decode to the same string, and indexOf
+    // would resolve both to the first of them.
+    const selectedIndex =
+      typeof state.selected_index === 'number' &&
+      state.selected_index >= 0 &&
+      state.selected_index < candidates.length
+        ? state.selected_index
+        : Math.max(0, payload.candidates.indexOf(state.selected));
     return {
       index,
       alpha: state.alpha,
@@ -277,9 +304,13 @@ export async function runLiveScenario(
         return {
           scenario: toScenario(payload),
           model: payload.model ?? 'unknown model',
+          revision: payload.revision,
           device: payload.device ?? '',
           cached: payload.cached === true,
+          staleCache: payload.stale === true,
+          cacheNote: typeof payload.note === 'string' ? payload.note : undefined,
           ageSeconds: Number.isFinite(payload.age_seconds) ? Number(payload.age_seconds) : 0,
+          direction: payload.direction,
         };
       } catch (error) {
         lastError = error;

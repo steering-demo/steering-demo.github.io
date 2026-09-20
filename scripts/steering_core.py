@@ -11,7 +11,7 @@ Nothing here is specific to a hosting environment, so the Space and the offline 
 produce identical numbers from identical inputs.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
 import torch
@@ -143,10 +143,21 @@ class StateMeasurement:
     alpha: float
     top_tokens: List[str]
     top_probs: List[float]
+    #: Ids matching `top_tokens`. The id is the identity of a candidate, not the decoded string:
+    #: two ids can decode to the same text, and matching on text would silently merge them.
+    top_ids: List[int]
     continuation: str
     #: True when generation stopped at the token limit rather than at an end-of-sequence token,
     #: so the text is cut off mid-thought. The page marks these rather than tidying them away.
     truncated: bool = False
+    #: Probability of every token in the vocabulary at this state.
+    #:
+    #: The displayed candidates are chosen only after all nine states are measured, so a
+    #: candidate can sit far outside any single state's top-k. Reading its probability out of
+    #: the top-k list returned 0 at those states, which is indistinguishable from a token the
+    #: model gave no mass to at all. Keeping the row means every displayed number is the real
+    #: softmax value. It is never serialised: it exists between measurement and `to_payload`.
+    full_probs: Optional[torch.Tensor] = field(default=None, repr=False, compare=False)
 
 
 @torch.no_grad()
@@ -182,9 +193,14 @@ def measure_states(
             hook.alpha = float(alpha)
 
             logits = model(ids, attention_mask=attention_mask).logits[0, -1].float()
-            probs = torch.softmax(logits, dim=-1)
+            # Softmax in float64. A displayed candidate can be far down this row at some states,
+            # and float32 flushes small probabilities to exactly zero, which would erase the
+            # difference between "the model thought this was very unlikely" and "the model gave
+            # it nothing at all". The logits themselves are the model's own float32 values.
+            probs = torch.softmax(logits.double(), dim=-1)
             values, indices = torch.topk(probs, top_k)
-            tokens = [tokenizer.decode([i]) for i in indices.tolist()]
+            token_ids = [int(i) for i in indices.tolist()]
+            tokens = [tokenizer.decode([i]) for i in token_ids]
 
             continuation = ""
             truncated = False
@@ -217,8 +233,10 @@ def measure_states(
                     alpha=float(alpha),
                     top_tokens=tokens,
                     top_probs=[float(v) for v in values.tolist()],
+                    top_ids=token_ids,
                     continuation=continuation,
                     truncated=truncated,
+                    full_probs=probs.detach().to("cpu"),
                 )
             )
     finally:
@@ -226,12 +244,79 @@ def measure_states(
     return results
 
 
-def probability_of(state: StateMeasurement, token: str) -> float:
-    """Probability the measurement assigned to `token`, or 0 if it fell outside the top-k."""
-    for candidate, value in zip(state.top_tokens, state.top_probs):
-        if candidate == token:
+def probability_of(state: StateMeasurement, token_id: int) -> float:
+    """
+    The model's probability for `token_id` at this state.
+
+    Exact whenever the full softmax row was kept. Without it this can only answer for tokens the
+    retained top-k contains, and returns 0.0 otherwise - which is why the row exists: a value
+    discarded here cannot be recovered by any amount of care in the renderer.
+    """
+    if state.full_probs is not None:
+        return float(state.full_probs[token_id])
+    for candidate, value in zip(state.top_ids, state.top_probs):
+        if candidate == token_id:
             return value
     return 0.0
+
+
+@torch.no_grad()
+def identity_check(
+    tokenizer,
+    model,
+    prompt: str,
+    prefix: str,
+    vector: torch.Tensor,
+    layer: int,
+    scale: float = 1.0,
+    max_new_tokens: int = 8,
+) -> Dict[str, object]:
+    """
+    Measures whether the hook at alpha = 0 really is the unmodified model.
+
+    The page rests on this: the alpha = 0 row is presented as the model's own behaviour, the
+    reference every other row is read against. That the hook returns early at alpha = 0 is
+    visible in the source, but reading the source is not a measurement, and an audit was right
+    to say so. This runs the same context twice under identical decoding - once with no hook
+    registered at all, once with the hook installed at alpha = 0 - and compares the next-token
+    logits and the greedy continuation.
+    """
+    base = build_context(tokenizer, prompt, prefix)
+    ids = torch.tensor([base], device=model.device)
+    attention_mask = torch.ones_like(ids)
+
+    def run():
+        logits = model(ids, attention_mask=attention_mask).logits[0, -1].float()
+        generated = model.generate(
+            ids,
+            attention_mask=attention_mask,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            num_beams=1,
+            temperature=None,
+            top_p=None,
+            top_k=None,
+            repetition_penalty=1.0,
+            pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
+        )
+        return logits, generated[0, len(base) :].tolist()
+
+    unhooked_logits, unhooked_tokens = run()
+
+    hook = SteeringHook((vector * scale).to(model.dtype))
+    hook.alpha = 0.0
+    handle = decoder_layers(model)[layer - 1].register_forward_hook(hook)
+    try:
+        hooked_logits, hooked_tokens = run()
+    finally:
+        handle.remove()
+
+    return {
+        "max_abs_logit_difference": float((hooked_logits - unhooked_logits).abs().max()),
+        "argmax_token_id_match": int(hooked_logits.argmax()) == int(unhooked_logits.argmax()),
+        "greedy_token_ids_match": hooked_tokens == unhooked_tokens,
+        "compared_new_tokens": max_new_tokens,
+    }
 
 
 def separation_score(states: Sequence[StateMeasurement]) -> Dict[str, float]:
@@ -242,12 +327,12 @@ def separation_score(states: Sequence[StateMeasurement]) -> Dict[str, float]:
     the number of distinct winners across the nine states should be small enough to show as a
     handful of chart rows.
     """
-    negative_token = states[0].top_tokens[0]
-    positive_token = states[-1].top_tokens[0]
+    negative_token = states[0].top_ids[0]
+    positive_token = states[-1].top_ids[0]
     winners = []
     for state in states:
-        if state.top_tokens[0] not in winners:
-            winners.append(state.top_tokens[0])
+        if state.top_ids[0] not in winners:
+            winners.append(state.top_ids[0])
 
     if negative_token == positive_token:
         return {"score": 0.0, "swing": 0.0, "distinct": float(len(winners))}
@@ -263,7 +348,7 @@ def separation_score(states: Sequence[StateMeasurement]) -> Dict[str, float]:
     shape_penalty = {1: 0.0, 2: 0.85, 3: 1.0, 4: 0.9, 5: 0.7}.get(len(winners), 0.5)
 
     # The neutral state should sit between the extremes rather than already being at one end.
-    middle = states[len(states) // 2].top_tokens[0]
+    middle = states[len(states) // 2].top_ids[0]
     balance = 1.0 if middle not in (negative_token, positive_token) else 0.8
 
     return {
@@ -276,6 +361,33 @@ def separation_score(states: Sequence[StateMeasurement]) -> Dict[str, float]:
 # --- turning measurements into the shape the page consumes -------------------------------
 
 MAX_CANDIDATES = 6
+
+#: Significant digits kept when a probability is written to the content file.
+#:
+#: Far more than the page displays. It exists so that a value the model really assigned, however
+#: small, stays distinguishable from a token it assigned nothing to. The previous two-decimal
+#: rounding destroyed exactly that distinction before it ever reached the renderer.
+STORED_SIGNIFICANT_DIGITS = 6
+
+
+@dataclass(frozen=True)
+class CandidateToken:
+    """A chart row: the token id that identifies it, and the text the page shows."""
+
+    token_id: int
+    text: str
+
+
+def store_percent(probability: float) -> float:
+    """
+    A probability, as a percentage, at the precision the content file keeps.
+
+    Exact zero survives as exact zero, so "the model gave this token no mass" and "the model gave
+    it very little" remain different facts all the way to the page.
+    """
+    if probability <= 0.0:
+        return 0.0
+    return float(f"{probability * 100:.{STORED_SIGNIFICANT_DIGITS}g}")
 
 
 def clean_continuation(text: str, truncated: bool = False) -> str:
@@ -296,34 +408,43 @@ def clean_continuation(text: str, truncated: bool = False) -> str:
     return text
 
 
-def select_candidates(states: Sequence[StateMeasurement]) -> List[str]:
+def select_candidates(states: Sequence[StateMeasurement]) -> List[CandidateToken]:
     """
     The candidate rows are the tokens that actually win somewhere on the slider, in the order
     they first win as alpha rises. Choosing them this way guarantees the selected token is the
     true argmax at every state, so the shown continuation always starts with a shown candidate.
+
+    Selection is by token id. A row is a token, and two ids that happen to decode to the same
+    string are two tokens.
     """
-    winners: List[str] = []
+    winners: List[CandidateToken] = []
+    seen = set()
     for state in states:
-        token = state.top_tokens[0]
-        if token not in winners:
-            winners.append(token)
+        token_id = state.top_ids[0]
+        if token_id not in seen:
+            seen.add(token_id)
+            winners.append(CandidateToken(token_id, state.top_tokens[0]))
 
     if len(winners) > MAX_CANDIDATES:
+        shown = [candidate.text for candidate in winners]
         raise ValueError(
-            f"{len(winners)} different tokens win across the nine states ({winners}); "
+            f"{len(winners)} different tokens win across the nine states ({shown}); "
             f"the page supports at most {MAX_CANDIDATES}. Retune the layer or the coefficient."
         )
 
     # Pad to three rows with the next most probable tokens, so a very stable scenario still
     # shows the alternatives it is choosing between.
     if len(winners) < 3:
-        ranked: Dict[str, float] = {}
+        ranked: Dict[int, float] = {}
+        text: Dict[int, str] = {}
         for state in states:
-            for token, prob in zip(state.top_tokens, state.top_probs):
-                ranked[token] = max(ranked.get(token, 0.0), prob)
-        for token, _ in sorted(ranked.items(), key=lambda kv: -kv[1]):
-            if token not in winners:
-                winners.append(token)
+            for token_id, token, prob in zip(state.top_ids, state.top_tokens, state.top_probs):
+                ranked[token_id] = max(ranked.get(token_id, 0.0), prob)
+                text[token_id] = token
+        for token_id, _ in sorted(ranked.items(), key=lambda kv: -kv[1]):
+            if token_id not in seen:
+                seen.add(token_id)
+                winners.append(CandidateToken(token_id, text[token_id]))
             if len(winners) == 3:
                 break
     return winners
@@ -339,19 +460,27 @@ def to_payload(
     candidates = select_candidates(states)
     rows = []
     for state in states:
-        # Two decimals, so a token that is genuinely absent from the top-k reads as 0 while a
-        # small but real probability survives rounding and can be shown as "<0.1%".
-        percents = [round(probability_of(state, token) * 100, 2) for token in candidates]
-        other = round(100.0 - sum(percents), 2)
-        if other < 0:
-            other = 0.0
-        selected = state.top_tokens[0]
+        # Full-precision probabilities first, rounding last. Every candidate is looked up in the
+        # complete softmax row, so a row that is off the top-k at this state still carries its
+        # real value rather than a zero.
+        exact = [probability_of(state, candidate.token_id) for candidate in candidates]
+        # "Other" is the rest of the vocabulary, taken from the unrounded numbers. Computing it
+        # as 100 minus the *rounded* percentages swept every candidate's rounding error into it.
+        remainder = max(0.0, 1.0 - sum(exact))
+
+        # The selected token is the model's argmax over the whole vocabulary. select_candidates
+        # guarantees it is one of the rows, so the chart and the sentence cannot disagree.
+        winner = state.top_ids[0]
+        selected_index = next(
+            index for index, candidate in enumerate(candidates) if candidate.token_id == winner
+        )
         rows.append(
             {
                 "alpha": state.alpha,
-                "percents": percents,
-                "other": other,
-                "selected": selected,
+                "percents": [store_percent(value) for value in exact],
+                "other": store_percent(remainder),
+                "selected": candidates[selected_index].text,
+                "selected_index": selected_index,
                 "continuation": clean_continuation(state.continuation, state.truncated),
                 "truncated": state.truncated,
             }
@@ -365,7 +494,9 @@ def to_payload(
         "prompt": spec.prompt,
         "prefix": spec.prefix,
         "takeaway": spec.takeaway,
-        "candidates": candidates,
+        "candidates": [candidate.text for candidate in candidates],
+        #: Ids behind those strings, so a consumer can tell two identically-decoding rows apart.
+        "candidate_ids": [candidate.token_id for candidate in candidates],
         "layer": layer,
         "scale": scale,
         "states": rows,

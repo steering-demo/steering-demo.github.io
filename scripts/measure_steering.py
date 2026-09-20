@@ -13,6 +13,7 @@ direction labels and takeaways are authored; nothing else is.
 import argparse
 import datetime as dt
 import json
+import platform
 import sys
 from pathlib import Path
 
@@ -22,7 +23,10 @@ import torch  # noqa: E402
 
 from steering_core import (  # noqa: E402
     ALPHAS,
+    REVISIONS,
+    STORED_SIGNIFICANT_DIGITS,
     candidate_id,
+    identity_check,
     load_model,
     measure_states,
     num_layers,
@@ -30,6 +34,8 @@ from steering_core import (  # noqa: E402
     steering_vector,
     to_payload,
 )
+import transformers  # noqa: E402
+
 from steering_scenarios import SCENARIOS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -55,8 +61,10 @@ def render_markdown(payloads, model_id: str, measured_on: str) -> str:
         "method.",
         "",
         f"Model: {model_id}",
-        "Method: difference of means over contrastive continuations; h' = h + alpha * coefficient * v "
-        "added to the residual stream at one decoder layer, at every position",
+        f"Revision: {REVISIONS.get(model_id, 'main')}",
+        "Method: difference of means over contrastive continuations; h' = h + alpha * c * v added "
+        "to the residual stream at one decoder layer, at every position, where c is the "
+        "per-scenario coefficient",
         f"Measured: {measured_on}",
         "",
         "---",
@@ -93,7 +101,9 @@ def render_markdown(payloads, model_id: str, measured_on: str) -> str:
             "| " + " | ".join(["---"] * (len(ids) + 5)) + " |",
         ]
         for state in payload["states"]:
-            selected = ids[payload["candidates"].index(state["selected"])]
+            # By index: two candidates can decode to the same string, and a string lookup would
+            # silently point at the first of them.
+            selected = ids[state["selected_index"]]
             cells = [
                 f"{state['alpha']:g}",
                 *[f"{value:g}" for value in state["percents"]],
@@ -158,6 +168,7 @@ def main() -> int:
         return 0
 
     payloads = []
+    identity = {}
     for spec in SCENARIOS:
         layer = min(spec.layer, depth)
         print(f"\n{spec.id}: layer {layer}, coefficient {spec.scale}")
@@ -170,6 +181,17 @@ def main() -> int:
             scale=spec.scale, alphas=ALPHAS, generate=True,
             max_new_tokens=args.max_new_tokens, top_k=512,
         )
+        # Does the hook at alpha = 0 actually leave the model alone? Measured, not assumed:
+        # the alpha = 0 row is the reference the whole page is read against.
+        identity[spec.id] = identity_check(
+            tokenizer, model, spec.prompt, spec.prefix, vector, layer, scale=spec.scale
+        )
+        print(
+            f"  identity at alpha=0: max|dlogit| = "
+            f"{identity[spec.id]['max_abs_logit_difference']:.3e}, "
+            f"greedy tokens match = {identity[spec.id]['greedy_token_ids_match']}"
+        )
+
         payload = to_payload(spec, states, layer, spec.scale)
         payloads.append(payload)
         for state in payload["states"]:
@@ -179,12 +201,52 @@ def main() -> int:
     Path(args.out).write_text(render_markdown(payloads, args.model, measured_on), encoding="utf8")
     print(f"\nwrote {args.out}")
 
+    # Everything needed to challenge a number, recorded from the run rather than asserted in
+    # prose. An audit asked for the runtime, device, dtype and decoding configuration to live in
+    # the artifact itself; a document can drift from the code, this cannot.
     report = {
         "model": args.model,
+        "revision": REVISIONS.get(args.model, "main"),
         "measured": measured_on,
         "layers_total": depth,
         "hidden_size": model.config.hidden_size,
         "alphas": ALPHAS,
+        "runtime": {
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "torch": torch.__version__,
+            "transformers": transformers.__version__,
+            "device": str(model.device),
+            "dtype": str(model.dtype),
+            "attn_implementation": "eager",
+        },
+        "decoding": {
+            "strategy": "greedy",
+            "do_sample": False,
+            "num_beams": 1,
+            "temperature": None,
+            "top_p": None,
+            "top_k": None,
+            "repetition_penalty": 1.0,
+            "max_new_tokens": args.max_new_tokens,
+        },
+        "intervention": {
+            "equation": "h' = h + alpha * c * v",
+            "hook": "forward hook on decoder_layers[layer - 1], output is hidden_states[layer]",
+            "scope": "every position the forward pass sees, prefill and each decoded position",
+            "vector": "mean activation over continuation tokens of positive examples minus "
+                      "the same over negative examples; not normalised",
+        },
+        "probabilities": {
+            "softmax_dtype": "float64",
+            "source": "full vocabulary row; displayed candidates read out of it by token id",
+            "stored_significant_digits": STORED_SIGNIFICANT_DIGITS,
+            "other": "1 - sum(candidate probabilities), computed before rounding",
+        },
+        # Hooked at alpha = 0 against no hook at all, under identical decoding. This is the
+        # evidence for calling the alpha = 0 row "the unmodified model".
+        "identity_at_zero": identity,
         "scenarios": payloads,
     }
     Path(args.report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf8")

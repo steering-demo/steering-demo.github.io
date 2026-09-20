@@ -345,3 +345,44 @@ describe('extensibility', () => {
     ]);
   });
 });
+
+describe('very small measured probabilities', () => {
+  /**
+   * A candidate that wins at one end of the slider can be genuinely tiny at the other. The
+   * format has to carry those values, because the alternative - writing them as 0 - is the
+   * rounding bug the measurement pipeline was fixed to avoid.
+   */
+  const TINY = VALID.replace(
+    '| 2 | 5 | 15 | 70 | 10 | high | end | high and loud. |',
+    '| 2 | 1.73507e-4 | 15 | 70 | 14.99983 | high | end | high and loud. |',
+  );
+
+  it('accepts exponent notation and reads it as a number', () => {
+    const { set, errors } = parseScenarios(TINY);
+    expect(errors, errors.map((e) => e.message).join('\n')).toEqual([]);
+    const last = set!.scenarios[0].states.at(-1)!;
+    expect(last.probabilities[0]).toBeCloseTo(0.000173507, 12);
+    expect(last.probabilities[0]).toBeGreaterThan(0);
+  });
+
+  it('still rejects text that merely looks like a number', () => {
+    expect(errorsFor((s) => s.replace('| -2 | 70 |', '| -2 | 7e |'))).toContain(
+      'is not a finite number',
+    );
+    expect(errorsFor((s) => s.replace('| -2 | 70 |', '| -2 | 1e2e3 |'))).toContain(
+      'is not a finite number',
+    );
+  });
+
+  it('keeps a tiny value out of the running for Selected', () => {
+    // 1.7e-4 percent is not the maximum, and declaring it as such must still fail.
+    expect(
+      errorsFor((s) =>
+        s.replace(
+          '| 2 | 5 | 15 | 70 | 10 | high | end | high and loud. |',
+          '| 2 | 1.73507e-4 | 15 | 70 | 14.99983 | low | end | low and quiet. |',
+        ),
+      ),
+    ).toContain('but the highest candidate is');
+  });
+});

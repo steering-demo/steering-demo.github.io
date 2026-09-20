@@ -48,6 +48,8 @@ export interface SteeringState {
 export interface Provenance {
   /** Hugging Face model id the measurements were taken from. */
   model: string;
+  /** Pinned commit of those weights. A model id without a revision is only half an answer. */
+  revision?: string;
   /** One sentence describing the intervention. */
   method: string;
   /** ISO date of the measurement run. */

@@ -196,7 +196,7 @@ existing Jekyll portfolio, and it does not need to be merged into one.
 own GitHub Pages site and add one link to the portfolio's navigation or research page:
 
 ```html
-<a href="https://steering-demo.github.io/steering/">
+<a href="https://steering-demo.github.io/">
   Interactive demo: Inside the Model — Steering Its Next Move
 </a>
 ```
@@ -205,23 +205,24 @@ For Jekyll `academicpages`-style portfolios, add an entry to `_data/navigation.y
 
 ```yaml
 - title: "Steering demo"
-  url: https://steering-demo.github.io/steering/
+  url: https://steering-demo.github.io/
 ```
 
 Nothing about the portfolio's build, theme or other pages changes, and the portfolio never loads
 this app's JavaScript.
 
-**Option B &mdash; serve it from the portfolio itself at `/steering/`.** The build is one
-self-contained directory, so this is a copy:
+**Option B &mdash; serve it from the portfolio itself at `/steering/`.** Build with the demo at
+that path and copy the two pieces:
 
 ```bash
-npm run build                                   # BASE_PATH defaults to /
-cp -R dist/steering <portfolio-repo>/steering
+BASE_PATH=/steering npm run build
+cp -R dist/ <portfolio-repo>/steering
 ```
 
-`dist/steering/` contains the page, its assets and its icon and references them all relative to
-the site root, so it drops into a portfolio served from a domain root. The output deliberately
-contains no leading-underscore directory, which Jekyll would otherwise exclude. If the portfolio
+The page itself is `dist/index.html`; its assets and icon live under `dist/steering/`. (Since the
+showcase moved to the site root, `dist/steering/index.html` is only a redirect to `/` &mdash;
+copying that directory alone would land a redirect in the portfolio, not the demo.) The output
+deliberately contains no leading-underscore directory, which Jekyll would otherwise exclude. If the portfolio
 is served from a subpath, build with the matching `BASE_PATH` first.
 
 Either way, keep the portfolio's own deployment workflow as it is. The workflow here publishes

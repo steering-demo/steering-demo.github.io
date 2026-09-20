@@ -1,15 +1,7 @@
-import type { ResultIdentity } from '../lib/result';
+import { describeAge, resultOrigin, type ResultIdentity } from '../lib/result';
 import { modelLabel } from '../lib/models';
 
 export type LiveState = 'idle' | 'running' | 'live' | 'error';
-
-function describeAge(seconds: number): string {
-  if (seconds < 90) return 'moments ago';
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  return hours === 1 ? 'an hour ago' : `${hours} hours ago`;
-}
 
 export interface ResultBadgeProps {
   identity: ResultIdentity;
@@ -22,11 +14,24 @@ export interface ResultBadgeProps {
  * States, in one place, exactly where the numbers on screen came from.
  *
  * Precomputed is named first and plainly. An audit found the page implying live computation while
- * replaying stored results, which is the one thing a page like this cannot afford to get wrong.
+ * replaying stored results, which is the one thing a page like this cannot afford to get wrong -
+ * and a second audit found the same slippage one level down, with a result replayed from the
+ * Space's cache still described as computed during this visit.
  */
 export function ResultBadge({ identity, stale, state }: ResultBadgeProps) {
-  const live = identity.source === 'live';
+  const origin = resultOrigin(identity);
+  const live = origin !== 'recorded';
   const model = modelLabel(identity.model);
+  const age = identity.ageSeconds === undefined ? undefined : describeAge(identity.ageSeconds);
+
+  const source =
+    origin === 'recorded'
+      ? 'Precomputed results · no live inference'
+      : origin === 'fresh'
+        ? 'Computed on Hugging Face'
+        : origin === 'cached'
+          ? `Replayed from the Space's cache${age ? `, ${age}` : ''}`
+          : `Live run failed — stored result${age ? ` from ${age}` : ''}`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
@@ -40,16 +45,13 @@ export function ResultBadge({ identity, stale, state }: ResultBadgeProps) {
         <span
           aria-hidden="true"
           className={`h-1.5 w-1.5 rounded-full ${
-            live ? 'bg-[var(--color-token-pos)]' : 'bg-[var(--color-ink-3)]'
+            origin === 'fresh' ? 'bg-[var(--color-token-pos)]' : 'bg-[var(--color-ink-3)]'
           }`}
         />
         <span>
-          {live ? 'Computed on Hugging Face' : 'Precomputed results · no live inference'}
+          {source}
           {' · '}
           <span className="font-mono">{model}</span>
-          {live && identity.cached && identity.ageSeconds !== undefined
-            ? `, ${describeAge(identity.ageSeconds)}`
-            : ''}
           {identity.layer === undefined ? null : (
             <>
               {' · '}layer {identity.layer}

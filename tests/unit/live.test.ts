@@ -45,7 +45,9 @@ function stubFetch(body: unknown, { missing = [] as string[] } = {}) {
     if (missing.some((prefix) => url.includes(prefix))) {
       return new Response('nope', { status: 404 });
     }
-    if (url.endsWith('/run_scenario')) {
+    // The POST that starts a job, on whichever endpoint planCall chose. The follow-up GET
+    // carries the event id, so only the bare endpoint is the opening request.
+    if (/\/call\/[a-z_]+$/.test(url)) {
       return new Response(JSON.stringify({ event_id: 'abc123' }), { status: 200 });
     }
     return new Response(sseFor(body), { status: 200 });
@@ -166,5 +168,62 @@ describe('the live Space client', () => {
     await expect(
       runLiveScenario('https://example.hf.space', 'movie-critic', { timeoutMs: 40 }),
     ).rejects.toThrow();
+  });
+});
+
+describe('what the client carries back about provenance', () => {
+  it('reports a fresh run as fresh', async () => {
+    stubFetch(payload({ cached: false, age_seconds: 0, revision: 'abc123def4567890' }));
+    const result = await runLiveScenario('https://space.test', 'movie-critic');
+    expect(result.cached).toBe(false);
+    expect(result.staleCache).toBe(false);
+    expect(result.revision).toBe('abc123def4567890');
+  });
+
+  it('keeps a stale fallback distinct from an ordinary cache hit', async () => {
+    // The Space serves a stored result when a fresh run fails - most often an exhausted GPU
+    // quota. Reporting that as a plain cache hit would let the page say the numbers were
+    // computed during this visit when the run never happened.
+    stubFetch(
+      payload({
+        cached: true,
+        stale: true,
+        age_seconds: 420,
+        note: 'RuntimeError: ZeroGPU quota exceeded',
+      }),
+    );
+    const result = await runLiveScenario('https://space.test', 'movie-critic');
+    expect(result.cached).toBe(true);
+    expect(result.staleCache).toBe(true);
+    expect(result.ageSeconds).toBe(420);
+    expect(result.cacheNote).toContain('quota');
+  });
+
+  it('reports the model the Space actually ran, not the one that was asked for', async () => {
+    stubFetch(payload({ model: 'HuggingFaceTB/SmolLM2-135M-Instruct' }));
+    const result = await runLiveScenario('https://space.test', 'movie-critic', {
+      model: 'Qwen/Qwen2.5-0.5B-Instruct',
+    });
+    expect(result.model).toBe('HuggingFaceTB/SmolLM2-135M-Instruct');
+  });
+
+  it('trusts the selected index over the decoded string', async () => {
+    // Two candidates can decode to the same text; indexOf would resolve both to the first.
+    const alphas = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+    stubFetch(
+      payload({
+        candidates: [' same', ' same', ' other'],
+        states: alphas.map((alpha) => ({
+          alpha,
+          percents: [10, 60, 5],
+          other: 25,
+          selected: ' same',
+          selected_index: 1,
+          continuation: 'same, the second one.',
+        })),
+      }),
+    );
+    const result = await runLiveScenario('https://space.test', 'movie-critic');
+    expect(result.scenario.states[0].selectedIndex).toBe(1);
   });
 });

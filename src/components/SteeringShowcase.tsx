@@ -5,7 +5,13 @@ import { TOKEN_OTHER, candidateColor } from '../lib/palette';
 import { runLiveScenario } from '../lib/live';
 import { DEFAULT_LIVE_MODEL } from '../lib/models';
 import { NEUTRAL_INDEX, formatAlpha, type Provenance, type Scenario } from '../lib/types';
-import { identityKey, isStale, recordedIdentity, type ResultIdentity } from '../lib/result';
+import {
+  identityKey,
+  isStale,
+  recordedIdentity,
+  spokenPercent,
+  type ResultIdentity,
+} from '../lib/result';
 import { AlphaSlider } from './AlphaSlider';
 import { CompletionPanel } from './CompletionPanel';
 import { HowItWorks } from './HowItWorks';
@@ -60,8 +66,8 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   }, []);
   const liveAvailable = Boolean(spaceUrl) && !liveOptOut;
 
-  /** What a live run right now would produce, used to key its result. */
-  const pendingIdentity: ResultIdentity = {
+  /** The configuration a live run started right now would measure. */
+  const requestIdentity: ResultIdentity = {
     source: 'live',
     model,
     scenarioId: recorded.id,
@@ -69,21 +75,71 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
     prefix,
     direction: recorded.id,
   };
-  const runKey = identityKey(pendingIdentity);
+  const requestKey = identityKey(requestIdentity);
 
   // The saved example is on screen until a live result exists for this exact configuration.
   const shown = shownKey ? live[shownKey] : undefined;
   const scenario = shown?.scenario ?? recorded;
-  const identity = shown?.identity ?? recordedIdentity(recorded, provenance?.model ?? 'unknown');
+  const identity =
+    shown?.identity ??
+    recordedIdentity(
+      recorded,
+      provenance?.model ?? 'unknown',
+      provenance?.revision,
+      provenance?.measured,
+    );
   const stale = isStale(identity, prompt, prefix);
 
   const inFlight = useRef<AbortController | null>(null);
+  /**
+   * The only live reply this component will accept.
+   *
+   * The previous guard compared a key captured when the request started against a key rebuilt
+   * from the same render closure. Both values came from the same place, so they always matched
+   * and no reply was ever rejected. A counter is the thing that actually moves when the visitor
+   * changes the model, edits the prompt, or switches scenario, so that is what decides.
+   */
+  const acceptedRequest = useRef(0);
+
+  /** Abandons any request in flight. Its reply, success or failure, will be ignored. */
+  const cancelInFlight = useCallback(() => {
+    acceptedRequest.current += 1;
+    inFlight.current?.abort();
+    inFlight.current = null;
+  }, []);
+
   useEffect(() => () => inFlight.current?.abort(), []);
+
+  /**
+   * Changing the model invalidates a run started for the previous one.
+   *
+   * Without this the old reply arrives, is accepted, and the badge names the model the visitor
+   * just navigated away from while the dropdown shows the new one.
+   */
+  const changeModel = useCallback(
+    (next: string) => {
+      cancelInFlight();
+      setModel(next);
+      setLiveError(undefined);
+      setLiveState((current) => (current === 'running' ? 'idle' : current));
+    },
+    [cancelInFlight],
+  );
+
+  /** Same for editing the prompt: a reply for the old text is no longer an answer. */
+  const changeDraft = useCallback(
+    (next: { prompt: string; prefix: string }) => {
+      cancelInFlight();
+      setDraft(next);
+      setLiveState((current) => (current === 'running' ? 'idle' : current));
+    },
+    [cancelInFlight],
+  );
 
   const runLive = useCallback(() => {
     if (!spaceUrl) return;
-    const key = runKey;
-    inFlight.current?.abort();
+    cancelInFlight();
+    const ticket = acceptedRequest.current;
     const controller = new AbortController();
     inFlight.current = controller;
     setLiveState('running');
@@ -93,43 +149,54 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
       signal: controller.signal,
       // Re-running the same text is a deliberate act, so bypass the Space's cache unless the
       // visitor changed something, in which case a cache hit is a genuine answer.
-      fresh: !edited && shownKey === key,
+      fresh: !edited && shownKey === requestKey,
       model,
       prompt: edited ? prompt : undefined,
       prefix: edited ? prefix : undefined,
     })
       .then((result) => {
-        // A late reply for a configuration the visitor has since moved away from must not
-        // overwrite what is on screen.
-        if (controller.signal.aborted || key !== identityKey(pendingIdentity)) return;
+        if (ticket !== acceptedRequest.current) return;
+        // Built from the reply, not from the request. The Space collapses whitespace, can fall
+        // back to the scenario's own text, and may answer on a different model than the one
+        // asked for - so the badge describes what ran, not what was requested.
         const resolved: ResultIdentity = {
-          ...pendingIdentity,
+          source: 'live',
           model: result.model,
+          revision: result.revision,
+          scenarioId: recorded.id,
+          prompt: result.scenario.prompt,
+          prefix: result.scenario.prefix,
+          direction: result.direction ?? recorded.id,
           layer: result.scenario.layer,
           coefficient: result.scenario.coefficient,
           cached: result.cached,
+          staleCache: result.staleCache,
+          cacheNote: result.cacheNote,
           ageSeconds: result.ageSeconds,
         };
+        const key = identityKey(resolved);
         setLive((current) => ({ ...current, [key]: { scenario: result.scenario, identity: resolved } }));
         setShownKey(key);
         setLiveState('live');
         setStateIndex(NEUTRAL_INDEX);
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+        // A failure belonging to a request the visitor has moved on from must not replace a
+        // newer result that succeeded.
+        if (ticket !== acceptedRequest.current) return;
         setLiveError(error instanceof Error ? error.message : String(error));
         setLiveState('error');
       });
-  }, [spaceUrl, runKey, recorded.id, model, edited, prompt, prefix, shownKey]);
+  }, [spaceUrl, cancelInFlight, requestKey, recorded.id, model, edited, prompt, prefix, shownKey]);
 
   const revertToRecorded = useCallback(() => {
-    inFlight.current?.abort();
+    cancelInFlight();
     setDraft(null);
     setShownKey(null);
     setLiveState('idle');
     setLiveError(undefined);
     setStateIndex(NEUTRAL_INDEX);
-  }, []);
+  }, [cancelInFlight]);
 
   const state = scenario.states[stateIndex] ?? scenario.states[NEUTRAL_INDEX];
   const neutral = scenario.states[NEUTRAL_INDEX];
@@ -171,8 +238,8 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   const chartSummary =
     `Next-token probabilities for ${scenario.title} at ${spokenAlpha(state.alpha)}: ` +
     `${scenario.candidates
-      .map((candidate, index) => `${candidate.label} ${state.probabilities[index]} percent`)
-      .join(', ')}, and ${state.other} percent for all other tokens combined.`;
+      .map((candidate, index) => `${candidate.label} ${spokenPercent(state.probabilities[index])}`)
+      .join(', ')}, and ${spokenPercent(state.other)} for all other tokens combined.`;
 
   const direction =
     state.alpha === 0
@@ -182,18 +249,18 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   const sliderValueText =
     `${spokenAlpha(state.alpha)} of minus 2 to plus 2. ${
       direction.charAt(0).toUpperCase() + direction.slice(1)
-    }. Most likely next token: ${selected.label}, ${selectedProbability} percent.`;
+    }. Most likely next token: ${selected.label}, ${spokenPercent(selectedProbability)}.`;
 
   const announcement =
     `${spokenAlpha(state.alpha)}, ${direction}. ` +
-    `Next token ${selected.label}, ${selectedProbability} percent. ` +
+    `Next token ${selected.label}, ${spokenPercent(selectedProbability)}. ` +
     `Completion: ${scenario.prefix} ${state.continuation}`;
   const announced = useDebounced(announcement, ANNOUNCE_DELAY_MS);
 
   const atNeutral = stateIndex === NEUTRAL_INDEX;
 
   function selectScenario(id: string) {
-    inFlight.current?.abort();
+    cancelInFlight();
     setScenarioId(id);
     setStateIndex(NEUTRAL_INDEX);
     setDraft(null);
@@ -225,7 +292,7 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
           <LiveControls
             state={liveState}
             model={model}
-            onModelChange={setModel}
+            onModelChange={changeModel}
             error={liveError}
             edited={edited}
             onRun={runLive}
@@ -238,7 +305,7 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
         <PromptPanel
           prompt={prompt}
           prefix={prefix}
-          onChange={liveAvailable ? setDraft : null}
+          onChange={liveAvailable ? changeDraft : null}
           edited={edited}
           maxPrompt={300}
           maxPrefix={100}
@@ -336,13 +403,19 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
             <div>
               <p className="font-mono text-xl text-[var(--color-ink)]">
                 <em className="not-italic">h&#8242;</em> = <em className="not-italic">h</em> +{' '}
-                <em className="not-italic">&alpha;v</em>
+                <em className="not-italic">&alpha;cv</em>
               </p>
               <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[13px] leading-snug">
                 {[
                   ['h', 'representation before the intervention'],
                   ['v', 'steering direction'],
-                  ['α', 'steering strength and sign'],
+                  ['α', 'the slider: steering strength and sign'],
+                  [
+                    'c',
+                    scenario.coefficient === undefined
+                      ? 'fixed per-scenario coefficient'
+                      : `fixed per-scenario coefficient, here ${scenario.coefficient}`,
+                  ],
                   ['h′', 'representation after the intervention'],
                 ].map(([symbol, meaning]) => (
                   <div key={symbol} className="contents">
@@ -361,7 +434,7 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
         {/* 8. The point of the whole thing. */}
         <section className="space-y-3">
           <p className="text-[15px] leading-relaxed text-[var(--color-ink)]">{scenario.takeaway}</p>
-          <HowItWorks provenance={provenance} live={identity.source === 'live'} />
+          <HowItWorks identity={identity} />
         </section>
       </div>
 

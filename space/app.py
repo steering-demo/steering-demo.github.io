@@ -26,7 +26,15 @@ from dataclasses import replace
 import gradio as gr
 import torch
 
-from steering_core import ALPHAS, load_model, measure_states, num_layers, steering_vector, to_payload
+from steering_core import (
+    ALPHAS,
+    REVISIONS,
+    load_model,
+    measure_states,
+    num_layers,
+    steering_vector,
+    to_payload,
+)
 from steering_scenarios import SCENARIOS, tuning_for
 
 try:
@@ -139,6 +147,9 @@ def _measure(model_id: str, scenario_id: str, prompt: str, prefix: str) -> dict:
         )
     payload = to_payload(shown, states, layer, scale)
     payload["model"] = model_id
+    # The pinned weights these numbers came from. The page names the model beside the result, and
+    # naming a model without its revision is only half an answer.
+    payload["revision"] = REVISIONS.get(model_id, "main")
     payload["device"] = str(model.device)
     payload["direction"] = spec.id
     payload["direction_title"] = spec.title

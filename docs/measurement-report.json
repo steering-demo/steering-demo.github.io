@@ -1,5 +1,6 @@
 {
   "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
   "measured": "2026-09-20",
   "layers_total": 24,
   "hidden_size": 896,
@@ -14,6 +15,58 @@
     1.5,
     2.0
   ],
+  "runtime": {
+    "python": "3.9.6",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "device": "cpu",
+    "dtype": "torch.float32",
+    "attn_implementation": "eager"
+  },
+  "decoding": {
+    "strategy": "greedy",
+    "do_sample": false,
+    "num_beams": 1,
+    "temperature": null,
+    "top_p": null,
+    "top_k": null,
+    "repetition_penalty": 1.0,
+    "max_new_tokens": 40
+  },
+  "intervention": {
+    "equation": "h' = h + alpha * c * v",
+    "hook": "forward hook on decoder_layers[layer - 1], output is hidden_states[layer]",
+    "scope": "every position the forward pass sees, prefill and each decoded position",
+    "vector": "mean activation over continuation tokens of positive examples minus the same over negative examples; not normalised"
+  },
+  "probabilities": {
+    "softmax_dtype": "float64",
+    "source": "full vocabulary row; displayed candidates read out of it by token id",
+    "stored_significant_digits": 6,
+    "other": "1 - sum(candidate probabilities), computed before rounding"
+  },
+  "identity_at_zero": {
+    "movie-critic": {
+      "max_abs_logit_difference": 0.0,
+      "argmax_token_id_match": true,
+      "greedy_token_ids_match": true,
+      "compared_new_tokens": 8
+    },
+    "animal-enthusiast": {
+      "max_abs_logit_difference": 0.0,
+      "argmax_token_id_match": true,
+      "greedy_token_ids_match": true,
+      "compared_new_tokens": 8
+    },
+    "storyteller": {
+      "max_abs_logit_difference": 0.0,
+      "argmax_token_id_match": true,
+      "greedy_token_ids_match": true,
+      "compared_new_tokens": 8
+    }
+  },
   "scenarios": [
     {
       "id": "movie-critic",
@@ -28,114 +81,128 @@
         " stunning",
         " captivating"
       ],
+      "candidate_ids": [
+        17478,
+        19850,
+        85182
+      ],
       "layer": 7,
       "scale": 1.0,
       "states": [
         {
           "alpha": -2.0,
           "percents": [
-            68.54,
-            0.01,
-            0.0
+            68.536,
+            0.0107496,
+            0.00245052
           ],
-          "other": 31.45,
+          "other": 31.4508,
           "selected": " terrible",
+          "selected_index": 0,
           "continuation": "terrible.",
           "truncated": false
         },
         {
           "alpha": -1.5,
           "percents": [
-            59.7,
-            0.03,
-            0.0
+            59.6935,
+            0.0320725,
+            0.00479659
           ],
-          "other": 40.27,
+          "other": 40.2696,
           "selected": " terrible",
+          "selected_index": 0,
           "continuation": "terrible, with a plot that was so convoluted and poorly executed that it felt like a waste of time.",
           "truncated": false
         },
         {
           "alpha": -1.0,
           "percents": [
-            48.85,
-            0.14,
-            0.01
+            48.8437,
+            0.144897,
+            0.00995153
           ],
-          "other": 51.0,
+          "other": 51.0014,
           "selected": " terrible",
+          "selected_index": 0,
           "continuation": "terrible, with a plot that was absurd and the acting being so bad that it was hard to believe it was even made.",
           "truncated": false
         },
         {
           "alpha": -0.5,
           "percents": [
-            13.53,
-            6.14,
-            0.57
+            13.5301,
+            6.14363,
+            0.572091
           ],
-          "other": 79.76,
+          "other": 79.7542,
           "selected": " terrible",
+          "selected_index": 0,
           "continuation": "terrible, a thoroughly disappointing and laughable attempt at a sci-fi thriller.",
           "truncated": false
         },
         {
           "alpha": 0.0,
           "percents": [
-            0.03,
-            23.16,
-            8.09
+            0.0338268,
+            23.1603,
+            8.08525
           ],
-          "other": 68.72,
+          "other": 68.7206,
           "selected": " stunning",
+          "selected_index": 1,
           "continuation": "stunning, with its breathtaking visuals and immersive storytelling that transported viewers to a world of alien landscapes and alien life forms.",
           "truncated": false
         },
         {
           "alpha": 0.5,
           "percents": [
-            0.0,
-            22.44,
-            14.04
+            0.00199128,
+            22.4416,
+            14.0353
           ],
-          "other": 63.52,
+          "other": 63.5211,
           "selected": " stunning",
+          "selected_index": 1,
           "continuation": "stunning, with breathtaking visuals and an engaging storyline that transported viewers to a world of alien landscapes and alien life forms. The film's exploration of themes of identity, alienation, and the human condition was\u2026",
           "truncated": true
         },
         {
           "alpha": 1.0,
           "percents": [
-            0.0,
-            20.5,
-            18.0
+            0.000513017,
+            20.5045,
+            17.9954
           ],
-          "other": 61.5,
+          "other": 61.4996,
           "selected": " stunning",
+          "selected_index": 1,
           "continuation": "stunning, with breathtaking visuals and an engaging storyline that transported viewers to a new world of space exploration and adventure. The film's blend of science fiction and action elements made it a must-see for fans\u2026",
           "truncated": true
         },
         {
           "alpha": 1.5,
           "percents": [
-            0.0,
-            19.09,
-            20.46
+            0.000243981,
+            19.0851,
+            20.4624
           ],
-          "other": 60.45,
+          "other": 60.4523,
           "selected": " captivating",
+          "selected_index": 2,
           "continuation": "captivating, with a blend of science fiction and adventure that transported audiences to a new world of space exploration. The film's plot was both thrilling and thought-provoking, with a cast of talented actors\u2026",
           "truncated": true
         },
         {
           "alpha": 2.0,
           "percents": [
-            0.0,
-            18.51,
-            21.08
+            0.000173507,
+            18.5108,
+            21.076
           ],
-          "other": 60.41,
+          "other": 60.413,
           "selected": " captivating",
+          "selected_index": 2,
           "continuation": "captivating, with a blend of science fiction and adventure. Set on the planet Mars, the film explores the mysteries of the Red Planet and the challenges of human exploration. The story follows a team of astronauts\u2026",
           "truncated": true
         }
@@ -154,114 +221,128 @@
         " pet",
         " dog"
       ],
+      "candidate_ids": [
+        8251,
+        6753,
+        5562
+      ],
       "layer": 10,
       "scale": 2.0,
       "states": [
         {
           "alpha": -2.0,
           "percents": [
-            28.47,
-            8.7,
-            0.33
+            28.4676,
+            8.70243,
+            0.328532
           ],
-          "other": 62.5,
+          "other": 62.5015,
           "selected": " cat",
+          "selected_index": 0,
           "continuation": "cat, with a book on my desk, a small lamp on the table, a small lamp on the side of the desk, a small lamp on the side of the desk, a small lamp on\u2026",
           "truncated": true
         },
         {
           "alpha": -1.5,
           "percents": [
-            13.87,
-            30.07,
-            0.36
+            13.8719,
+            30.0679,
+            0.356927
           ],
-          "other": 55.7,
+          "other": 55.7033,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet, perhaps a small animal like a cat or a dog, nestled in a corner of my room. I would be reading a book, perhaps a science fiction novel, or a historical novel, with\u2026",
           "truncated": true
         },
         {
           "alpha": -1.0,
           "percents": [
-            5.02,
-            42.14,
-            0.44
+            5.01719,
+            42.1384,
+            0.441449
           ],
-          "other": 52.4,
+          "other": 52.4029,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet, perhaps a furry friend or a gentle animal, surrounded by soft lighting and a comfortable, inviting surface. I would be reading a book, perhaps a novel or a memoir, or perhaps a journal\u2026",
           "truncated": true
         },
         {
           "alpha": -0.5,
           "percents": [
-            1.87,
-            47.92,
-            0.68
+            1.86648,
+            47.9148,
+            0.681483
           ],
-          "other": 49.53,
+          "other": 49.5372,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet in a cozy, comfortable space. I would sit on a comfortable chair or a soft sofa, and close my eyes to enjoy the tranquility of the moment. I would imagine the scene of the\u2026",
           "truncated": true
         },
         {
           "alpha": 0.0,
           "percents": [
-            0.59,
-            61.18,
-            1.6
+            0.592731,
+            61.1815,
+            1.60005
           ],
-          "other": 36.63,
+          "other": 36.6257,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet in a way that feels both intimate and comforting. Here are some aspects of what I envision: 1. **Comfort and Security**: I'd like to feel safe and secure in the company of my\u2026",
           "truncated": true
         },
         {
           "alpha": 0.5,
           "percents": [
-            0.2,
-            70.22,
-            5.34
+            0.196582,
+            70.2139,
+            5.34035
           ],
-          "other": 24.24,
+          "other": 24.2491,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet in a way that's both fun and fulfilling. Here are some ideas to help you create a memorable afternoon with your furry friend: 1. **Pet Walk**: Start your day with a walk with\u2026",
           "truncated": true
         },
         {
           "alpha": 1.0,
           "percents": [
-            0.13,
-            50.21,
-            20.33
+            0.126591,
+            50.2097,
+            20.3293
           ],
-          "other": 29.33,
+          "other": 29.3344,
           "selected": " pet",
+          "selected_index": 1,
           "continuation": "pet in many ways! Here are some examples: 1. Playing games: I'd love to play games with my dog or cat. Whether it's running, chasing, or simply playing in the park\u2026",
           "truncated": true
         },
         {
           "alpha": 1.5,
           "percents": [
-            0.11,
-            13.41,
-            43.1
+            0.114267,
+            13.4144,
+            43.0951
           ],
-          "other": 43.38,
+          "other": 43.3762,
           "selected": " dog",
+          "selected_index": 2,
           "continuation": "dog! The joy of running and playing with a dog is truly amazing. Dogs are friendly and energetic, and they bring joy to people of all ages. Whether it's a family picnic, a race\u2026",
           "truncated": true
         },
         {
           "alpha": 2.0,
           "percents": [
-            0.11,
-            1.16,
-            45.49
+            0.10545,
+            1.15533,
+            45.4889
           ],
-          "other": 53.24,
+          "other": 53.2503,
           "selected": " dog",
+          "selected_index": 2,
           "continuation": "dog! The joy of running and playing with dogs is exciting and fun. Dogs are friendly and love to play, and they provide a sense of excitement and happiness. They are often run in various races\u2026",
           "truncated": true
         }
@@ -280,114 +361,128 @@
         " slowly",
         " loudly"
       ],
+      "candidate_ids": [
+        29566,
+        13970,
+        53845
+      ],
       "layer": 14,
       "scale": 1.0,
       "states": [
         {
           "alpha": -2.0,
           "percents": [
-            50.79,
-            0.54,
-            0.05
+            50.7934,
+            0.538966,
+            0.0455577
           ],
-          "other": 48.62,
+          "other": 48.6221,
           "selected": " quietly",
+          "selected_index": 0,
           "continuation": "quietly, with a gentle and deliberate approach. The person sitting on a chair, perhaps in a waiting room or a waiting area, has arrived for a specific purpose. The door is in a state of\u2026",
           "truncated": true
         },
         {
           "alpha": -1.5,
           "percents": [
-            51.03,
-            1.44,
-            0.07
+            51.0322,
+            1.43897,
+            0.0664083
           ],
-          "other": 47.46,
+          "other": 47.4624,
           "selected": " quietly",
+          "selected_index": 0,
           "continuation": "quietly, with a gentle touch. The person sitting on the chair, perhaps a visitor or a colleague, has arrived for a brief visit. The door is a place of privacy and reflection, often used\u2026",
           "truncated": true
         },
         {
           "alpha": -1.0,
           "percents": [
-            51.81,
-            3.62,
-            0.06
+            51.8104,
+            3.62194,
+            0.0590836
           ],
-          "other": 44.51,
+          "other": 44.5086,
           "selected": " quietly",
+          "selected_index": 0,
           "continuation": "quietly, with a gentle touch. The person sitting on the floor, perhaps a visitor or a colleague, approached the door with a sense of respect and anticipation. They took a few steps forward, their\u2026",
           "truncated": true
         },
         {
           "alpha": -0.5,
           "percents": [
-            36.51,
-            8.66,
-            0.12
+            36.5098,
+            8.66332,
+            0.124534
           ],
-          "other": 54.71,
+          "other": 54.7023,
           "selected": " quietly",
+          "selected_index": 0,
           "continuation": "quietly, with a gentle touch from the person who was opening it. The person's movements were deliberate and measured, as if they were carefully preparing to enter a room or space. They stood with their\u2026",
           "truncated": true
         },
         {
           "alpha": 0.0,
           "percents": [
-            13.7,
-            20.44,
-            2.09
+            13.704,
+            20.4428,
+            2.09277
           ],
-          "other": 63.77,
+          "other": 63.7604,
           "selected": " slowly",
+          "selected_index": 1,
           "continuation": "slowly, as if it was waiting for someone to come in. The person inside the door was a young woman, dressed in a simple, elegant dress. She was wearing a delicate veil, which she\u2026",
           "truncated": true
         },
         {
           "alpha": 0.5,
           "percents": [
-            0.95,
-            4.2,
-            23.01
+            0.948374,
+            4.19568,
+            23.0098
           ],
-          "other": 71.84,
+          "other": 71.8462,
           "selected": " loudly",
+          "selected_index": 2,
           "continuation": "loudly, and the person inside was startled. They looked around and saw a large, imposing figure standing in front of them. The person was wearing a suit and tie, and they had a look of\u2026",
           "truncated": true
         },
         {
           "alpha": 1.0,
           "percents": [
-            0.11,
-            0.44,
-            29.87
+            0.110191,
+            0.442218,
+            29.8664
           ],
-          "other": 69.58,
+          "other": 69.5812,
           "selected": " loudly",
+          "selected_index": 2,
           "continuation": "loudly, and the sound echoed through the room. The person standing in front of the door was a man, and he was wearing a black leather jacket and a red cape. He was holding a large\u2026",
           "truncated": true
         },
         {
           "alpha": 1.5,
           "percents": [
-            0.05,
-            0.17,
-            30.22
+            0.0493882,
+            0.171645,
+            30.2138
           ],
-          "other": 69.56,
+          "other": 69.5651,
           "selected": " loudly",
+          "selected_index": 2,
           "continuation": "loudly, and the sound echoed through the room. The person standing in front of the door was a man, and he was wearing a red shirt and a black hat. He was holding a large,\u2026",
           "truncated": true
         },
         {
           "alpha": 2.0,
           "percents": [
-            0.03,
-            0.11,
-            33.3
+            0.0328883,
+            0.107062,
+            33.2935
           ],
-          "other": 66.56,
+          "other": 66.5666,
           "selected": " loudly",
+          "selected_index": 2,
           "continuation": "loudly, and the sound echoed through the room. The air was filled with the smell of smoke and dust, and the sound of thunder echoed through the air. The sky was a fiery red, and\u2026",
           "truncated": true
         }

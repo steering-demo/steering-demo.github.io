@@ -74,12 +74,16 @@ const REQUIRED_FIELDS: FieldName[] = [
 
 const PROVENANCE_KEYS: Record<string, keyof Provenance> = {
   model: 'model',
+  revision: 'revision',
   method: 'method',
   measured: 'measured',
 };
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
+// Exponent notation is accepted because measured probabilities span many orders of
+// magnitude: a candidate that wins at one end of the slider can be genuinely tiny at the
+// other, and writing it as 0.00 would be the rounding bug this format exists to avoid.
+const NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const SEPARATOR_CELL = /^:?-{1,}:?$/;
 const MIN_CANDIDATES = 2;
 const MAX_CANDIDATES = 6;

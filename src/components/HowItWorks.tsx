@@ -1,13 +1,22 @@
-import type { Provenance } from '../lib/types';
+import { describeAge, resultOrigin, shortRevision, type ResultIdentity } from '../lib/result';
 
 export interface HowItWorksProps {
-  provenance?: Provenance;
-  /** True when the numbers on screen were computed by the Space during this visit. */
-  live: boolean;
+  /** The result currently on screen. Everything here describes that result and nothing else. */
+  identity: ResultIdentity;
 }
 
-export function HowItWorks({ provenance, live }: HowItWorksProps) {
-  const model = provenance?.model ?? 'a small open-weights model';
+/**
+ * How the numbers above were produced.
+ *
+ * This used to be handed the recorded dataset's provenance no matter what was on screen, so a
+ * live SmolLM2 result was still described as measured from Qwen, and a result the Space had
+ * replayed from its cache was described as computed during this visit. It now takes the
+ * displayed result's own identity, which is the only thing that can answer either question.
+ */
+export function HowItWorks({ identity }: HowItWorksProps) {
+  const origin = resultOrigin(identity);
+  const revision = shortRevision(identity.revision);
+  const age = identity.ageSeconds === undefined ? undefined : describeAge(identity.ageSeconds);
 
   return (
     <details className="group rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]">
@@ -25,16 +34,14 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
           Representation steering changes a model&rsquo;s internal activations during generation.
           Here a steering vector <Sym>v</Sym> is added to a hidden representation <Sym>h</Sym> at a
           selected layer: <Sym>h&#8242; = h + &alpha;cv</Sym>. The slider controls{' '}
-          <Sym>&alpha;</Sym>; <Sym>c</Sym> is a fixed per-scenario coefficient shown in the badge,
-          so the badge reading &ldquo;c&nbsp;=&nbsp;2&rdquo; at <Sym>&alpha;</Sym>&nbsp;=&nbsp;1
-          means the vector was added twice over. At zero, no steering is applied; positive and
+          <Sym>&alpha;</Sym>. <Sym>c</Sym> is a fixed per-scenario coefficient, shown in the badge,
+          so <Sym>c</Sym>&nbsp;=&nbsp;2 at <Sym>&alpha;</Sym>&nbsp;=&nbsp;1 means the intervention
+          is scaled by 2. At <Sym>&alpha;</Sym>&nbsp;=&nbsp;0 nothing is added at all; positive and
           negative values move in opposite directions.
         </p>
 
         <p>
-          {live
-            ? 'These results were computed on Hugging Face during this visit.'
-            : 'These results were generated in advance and ship with the page.'}{' '}
+          <Origin origin={origin} age={age} note={identity.cacheNote} />{' '}
           The chart shows probabilities for the token immediately after the fixed opening words,
           and the response shows the corresponding generated continuation. The rows are the tokens
           that win somewhere on the slider, not necessarily the three most likely at the current
@@ -59,6 +66,12 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
         </p>
 
         <p>
+          Probabilities are read from the full softmax over the vocabulary, not from a truncated
+          top-k list, and are stored with enough precision that a token the model gave very little
+          weight to is still shown as <Sym>&lt;0.1%</Sym> rather than rounded away to zero.
+        </p>
+
+        <p>
           <strong className="font-medium text-[var(--color-ink)]">Your own prompt.</strong> With a
           live service configured, the prompt and opening words are editable and can be measured
           for real. The steering direction is still the selected scenario&rsquo;s, re-derived from
@@ -68,12 +81,18 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
 
         <p className="text-[var(--color-ink-3)]">
           Scenario text, opening words, direction labels and takeaways are written by hand. The
-          candidate tokens, probabilities and responses are measured from{' '}
-          <Model>{model}</Model>. The layer and coefficient were chosen by sweeping both and
-          keeping the setting where the intended contrast appeared most clearly &mdash; those are
-          selected demonstration settings, not evidence of general effectiveness. The models here
-          are deliberately small; none of this is a result about how larger systems behave.
-          {provenance ? ` Measured ${provenance.measured}.` : ''} Method and data:{' '}
+          candidate tokens, probabilities and responses on screen are measured from{' '}
+          <Model>{identity.model}</Model>
+          {revision ? (
+            <>
+              {' '}at revision <Model>{revision}</Model>
+            </>
+          ) : null}
+          . The layer and coefficient were chosen by sweeping both and keeping the setting where
+          the intended contrast appeared most clearly &mdash; those are selected demonstration
+          settings, not evidence of general effectiveness. The models here are deliberately small;
+          none of this is a result about how larger systems behave.
+          {identity.measured ? ` Measured ${identity.measured}.` : ''} Method and data:{' '}
           <a
             className="underline underline-offset-2 hover:text-[var(--color-ink-2)]"
             href="https://github.com/steering-demo/steering-demo.github.io/blob/main/docs/MEASUREMENT.md"
@@ -82,9 +101,47 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
           </a>
           .
         </p>
-
       </div>
     </details>
+  );
+}
+
+/**
+ * One sentence for where these particular numbers came from.
+ *
+ * Four cases, because "live" is not one fact: the model ran during this visit, the Space replayed
+ * a result it had already computed, or the run failed and the Space fell back to a stored one.
+ */
+function Origin({
+  origin,
+  age,
+  note,
+}: {
+  origin: ReturnType<typeof resultOrigin>;
+  age?: string;
+  note?: string;
+}) {
+  if (origin === 'recorded') {
+    return <>These results were measured in advance and ship with the page.</>;
+  }
+  if (origin === 'fresh') {
+    return <>These results were computed on Hugging Face during this visit.</>;
+  }
+  if (origin === 'cached') {
+    return (
+      <>
+        The Space had already measured this exact configuration and replayed the result it stored{' '}
+        {age ?? 'earlier'}, rather than spending GPU time to produce the same numbers again.
+      </>
+    );
+  }
+  return (
+    <>
+      The run requested during this visit did not complete, so the Space served a measurement it
+      had stored {age ?? 'earlier'} instead. These are real numbers for this configuration, but
+      they were not computed just now
+      {note ? ` (${note})` : ''}.
+    </>
   );
 }
 

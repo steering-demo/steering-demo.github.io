@@ -277,8 +277,15 @@ test.describe('representation steering showcase', () => {
 
     await page.waitForTimeout(500);
     const settled = await barWidths(page);
-    const widest = Math.max(...settled);
-    expect(settled.indexOf(widest)).toBe(final.selectedIndex);
+    // One bar per candidate plus the aggregated "All other tokens" row. That last row is
+    // frequently the widest - a real next-token distribution puts most of its mass outside three
+    // tokens - and it is not a candidate, so the claim here is about the candidate bars only.
+    // (This previously compared against every bar and passed by accident, because a candidate
+    // stored as exactly 0 rendered no path at all and shifted the indices.)
+    expect(settled).toHaveLength(movie.candidates.length + 1);
+    const candidateBars = settled.slice(0, movie.candidates.length);
+    const widest = Math.max(...candidateBars);
+    expect(candidateBars.indexOf(widest)).toBe(final.selectedIndex);
     expect(await readTable(page)).toEqual(rowsNow);
   });
 

@@ -54,14 +54,17 @@ be unique. Tabs appear in file order, and the first scenario is the one that loa
 
 ## Provenance
 
-Lines above the first `##` heading are prose and ignored, except for three optional keys that
-record where the numbers came from. When all three are present the page shows the model name
-instead of an "illustrative data" label:
+Lines above the first `##` heading are prose and ignored, except for a few optional keys that
+record where the numbers came from. When `Model`, `Method` and `Measured` are all present the page
+shows the model name instead of an "illustrative data" label. `Revision` is optional; when it is
+there the page names it alongside the model, because a model id without a revision only half
+identifies the weights.
 
 ```markdown
 Model: Qwen/Qwen2.5-0.5B-Instruct
-Method: difference of means over contrastive continuations; h' = h + alpha * coefficient * v ...
-Measured: 2026-09-19
+Revision: 7ae557604adf67be50417f59c2c2f167def9a775
+Method: difference of means over contrastive continuations; h' = h + alpha * c * v ...
+Measured: 2026-09-20
 ```
 
 ## Fields
@@ -108,15 +111,18 @@ One row per slider position. Exactly nine rows are required, one for each of
 Columns are matched by name, so their order does not matter, but the set must be exactly:
 `Alpha`, one column per candidate ID, `Other`, `Selected`, `Continuation`.
 
-- **Percentages** are plain numbers with no `%` sign, each between 0 and 100. Every row must
-  total 100 within a tolerance of 0.5.
+- **Percentages** are numbers with no `%` sign, each between 0 and 100. Every row must total 100
+  within a tolerance of 0.5. Exponent notation (`1.73507e-4`) is accepted and is what the
+  measurement pipeline writes for very small values: a token that wins at one end of the slider
+  can be genuinely tiny at the other, and writing it as `0` would claim the model gave it no
+  weight at all. A value of exactly `0` means exactly zero.
 - **`Other`** is the remaining probability mass added together. It is not a token, it never wins
   the argmax, and the UI labels it separately. The validator warns, but does not fail, when it
   exceeds the largest candidate: for measured content that is normal, because a real model spreads
   probability across a large vocabulary.
 - **`Selected`** names the candidate with the highest probability in that row. Two candidates may
-  share the top value &mdash; measured percentages are rounded for display, and rounding can tie
-  tokens the underlying measurement separated &mdash; in which case whichever is declared
+  share the top value &mdash; stored percentages are rounded to six significant figures, which can
+  tie tokens the underlying measurement separated &mdash; in which case whichever is declared
   `Selected` wins.
 - **`Continuation`** is the generated text after the prefix. It must begin with the selected
   candidate's token, ignoring the token's leading space and its case. The UI renders it as
