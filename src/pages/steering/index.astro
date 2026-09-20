@@ -1,0 +1,55 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SteeringShowcase } from '../../components/SteeringShowcase';
+import { provenance, scenarios } from '../../data/scenarios';
+
+const title = 'Inside the Model: Steering Its Next Move';
+const description =
+  'An interactive explainer for representation steering: keep the prompt fixed, add a steering direction to the internal representation, and watch the next-token probabilities and the continuation change. Real measurements from a small open-weights model.';
+
+// The Hugging Face Space that runs the model. With one set, the page recomputes each scenario
+// live; without one, it ships the recorded measurements alone.
+//
+// The process environment wins (CI, or a one-off `PUBLIC_STEERING_SPACE=... npm run build`),
+// then `.env`, which Vite surfaces through import.meta.env. `??` is not enough here: an unset
+// GitHub Actions variable arrives as an empty string, not as undefined, and would otherwise
+// silently override the committed default.
+const spaceUrl =
+  [process.env.PUBLIC_STEERING_SPACE, import.meta.env.PUBLIC_STEERING_SPACE]
+    .map((value) => (value ?? '').trim())
+    .find((value) => value !== '') ?? '';
+---
+
+<Base title={title} description={description}>
+  <main class="mx-auto w-full max-w-[68rem] px-4 py-10 sm:px-6 sm:py-14">
+    <header class="max-w-[46rem]">
+      <h1 class="text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.125rem]">
+        {title}
+      </h1>
+      <p class="mt-3 text-[16px] leading-relaxed text-[var(--color-ink-2)] sm:text-[17px]">
+        Same prompt, same opening words. The slider edits the model&rsquo;s internal state as it
+        writes &mdash; and its next word changes with it.
+      </p>
+    </header>
+
+    <div class="mt-8">
+      <SteeringShowcase
+        client:load
+        scenarios={scenarios}
+        provenance={provenance}
+        spaceUrl={spaceUrl}
+      />
+    </div>
+
+    <footer
+      class="mt-12 border-t border-[var(--color-line)] pt-6 text-[13px] leading-relaxed text-[var(--color-ink-3)]"
+    >
+      <p>
+        &copy; 2026 <a
+          class="text-[var(--color-ink-2)] underline underline-offset-2 hover:text-[var(--color-ink)]"
+          href="https://haoranwang18.github.io/">Haoran Wang</a
+        >. All rights reserved.
+      </p>
+    </footer>
+  </main>
+</Base>

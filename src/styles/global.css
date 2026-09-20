@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * Data colours are a diverging triple: two poles plus a neutral grey midpoint, because the
+ * candidates sit on a signed axis (negative direction -> neutral -> positive direction).
+ * Blue/orange rather than red/green: nothing here is good or bad, only directional.
+ * Validated against the dark surface #1a1a19 (worst all-pairs CVD dE 10.9, normal-vision 16.8,
+ * poles and midpoint all >= 3:1). "Other" is deliberately recessive at 2.67:1 and always carries
+ * a visible text label plus a row in the accessible table.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  --color-surface-0: #141413;
+  --color-surface-1: #1a1a19;
+  --color-surface-2: #21211f;
+  --color-surface-3: #2a2a27;
+  --color-line: #32322e;
+  --color-line-strong: #474741;
+
+  --color-ink: #f2f1ec;
+  --color-ink-2: #c3c2b7;
+  --color-ink-3: #94938b;
+
+  --color-token-neg: #3987e5;
+  --color-token-mid: #8f8e85;
+  --color-token-pos: #d95926;
+  --color-token-other: #5f5e57;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-surface-0);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-surface-0);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One visible focus treatment everywhere, including keyboard use on the slider. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /*
+   * Native range input, restyled. Kept as a real <input type="range"> so keyboard support,
+   * arrow-key stepping and screen-reader semantics come from the platform.
+   */
+  .alpha-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 28px;
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+  }
+
+  .alpha-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--color-token-neg) 55%, var(--color-surface-3)) 0%,
+      var(--color-surface-3) 50%,
+      color-mix(in oklab, var(--color-token-pos) 55%, var(--color-surface-3)) 100%
+    );
+  }
+
+  .alpha-range::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--color-token-neg) 55%, var(--color-surface-3)) 0%,
+      var(--color-surface-3) 50%,
+      color-mix(in oklab, var(--color-token-pos) 55%, var(--color-surface-3)) 100%
+    );
+  }
+
+  .alpha-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    margin-top: -8px;
+    border-radius: 999px;
+    background: var(--color-ink);
+    border: 3px solid var(--color-surface-1);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  }
+
+  .alpha-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--color-ink);
+    border: 3px solid var(--color-surface-1);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  }
+
+  /* Horizontal tab strip may scroll on narrow screens without the page scrolling. */
+  .tabs-scroll {
+    scrollbar-width: none;
+  }
+  .tabs-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,6 @@
+# torch is deliberately unpinned and unlisted: the ZeroGPU image ships a supported build
+# (2.8.x - 2.13.x), and pinning here forces a slow reinstall that can land outside that range.
+# Add an explicit `torch==2.13.0` only if the Space logs show torch missing.
+spaces
+transformers>=4.45
+accelerate

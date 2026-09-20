@@ -1,0 +1,44 @@
+{
+  "name": "steering-showcase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive representation-steering showcase (illustrative toy data, no live model).",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "content:build": "tsx scripts/build-scenarios.ts",
+    "content:check": "tsx scripts/build-scenarios.ts --check",
+    "dev": "npm run content:build && astro dev",
+    "start": "npm run dev",
+    "build": "npm run content:build && astro build",
+    "preview": "astro preview",
+    "typecheck": "npm run content:build && astro check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run content:check && npm run typecheck && npm run test && npm run check:base-path && npm run build",
+    "serve": "node scripts/serve-dist.mjs",
+    "check:base-path": "node scripts/check-base-path.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.5",
+    "@astrojs/react": "^6.0.6",
+    "@playwright/test": "^1.56.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "astro": "^7.3.3",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

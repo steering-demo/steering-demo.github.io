@@ -1,0 +1,370 @@
+{
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "measured": "2026-09-19",
+  "layers_total": 24,
+  "hidden_size": 896,
+  "alphas": [
+    -2.0,
+    -1.5,
+    -1.0,
+    -0.5,
+    0.0,
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ],
+  "scenarios": [
+    {
+      "id": "movie-critic",
+      "title": "Movie Critic",
+      "negative_label": "Negative sentiment",
+      "positive_label": "Positive sentiment",
+      "prompt": "Give a one-sentence review of the fictional movie Midnight on Mars.",
+      "prefix": "The movie was absolutely",
+      "takeaway": "Same film, same question. The direction decides whether it was terrible or captivating.",
+      "candidates": [
+        " terrible",
+        " stunning",
+        " captivating"
+      ],
+      "layer": 7,
+      "scale": 1.0,
+      "states": [
+        {
+          "alpha": -2.0,
+          "percents": [
+            68.5,
+            0.0,
+            0.0
+          ],
+          "other": 31.5,
+          "selected": " terrible",
+          "continuation": "terrible."
+        },
+        {
+          "alpha": -1.5,
+          "percents": [
+            59.7,
+            0.0,
+            0.0
+          ],
+          "other": 40.3,
+          "selected": " terrible",
+          "continuation": "terrible, with a plot that was so convoluted and poorly executed that it felt like a waste of time."
+        },
+        {
+          "alpha": -1.0,
+          "percents": [
+            48.8,
+            0.1,
+            0.0
+          ],
+          "other": 51.1,
+          "selected": " terrible",
+          "continuation": "terrible, with a plot that was absurd and the acting being so bad that it was hard to believe it was even made."
+        },
+        {
+          "alpha": -0.5,
+          "percents": [
+            13.5,
+            6.1,
+            0.6
+          ],
+          "other": 79.8,
+          "selected": " terrible",
+          "continuation": "terrible, a thoroughly disappointing and laughable attempt at a sci-fi thriller."
+        },
+        {
+          "alpha": 0.0,
+          "percents": [
+            0.0,
+            23.2,
+            8.1
+          ],
+          "other": 68.7,
+          "selected": " stunning",
+          "continuation": "stunning, with its breathtaking visuals and immersive storytelling that transported viewers to a world of alien landscapes and alien life forms."
+        },
+        {
+          "alpha": 0.5,
+          "percents": [
+            0.0,
+            22.4,
+            14.0
+          ],
+          "other": 63.6,
+          "selected": " stunning",
+          "continuation": "stunning, with breathtaking visuals and an engaging storyline that transported viewers to a world of alien landscapes and alien life forms."
+        },
+        {
+          "alpha": 1.0,
+          "percents": [
+            0.0,
+            20.5,
+            18.0
+          ],
+          "other": 61.5,
+          "selected": " stunning",
+          "continuation": "stunning, with breathtaking visuals and an engaging storyline that transported viewers to a new world of space exploration and adventure."
+        },
+        {
+          "alpha": 1.5,
+          "percents": [
+            0.0,
+            19.1,
+            20.5
+          ],
+          "other": 60.4,
+          "selected": " captivating",
+          "continuation": "captivating, with a blend of science fiction and adventure that transported audiences to a new world of space exploration."
+        },
+        {
+          "alpha": 2.0,
+          "percents": [
+            0.0,
+            18.5,
+            21.1
+          ],
+          "other": 60.4,
+          "selected": " captivating",
+          "continuation": "captivating, with a blend of science fiction and adventure."
+        }
+      ]
+    },
+    {
+      "id": "animal-enthusiast",
+      "title": "Animal Enthusiast",
+      "negative_label": "Cat-oriented",
+      "positive_label": "Dog-oriented",
+      "prompt": "Describe your ideal afternoon with a pet.",
+      "prefix": "I'd spend the afternoon with a",
+      "takeaway": "One direction reaches for the cat, the other for the dog. Neither is better; they are opposite ways along the same line.",
+      "candidates": [
+        " cat",
+        " pet",
+        " dog"
+      ],
+      "layer": 10,
+      "scale": 2.0,
+      "states": [
+        {
+          "alpha": -2.0,
+          "percents": [
+            28.5,
+            8.7,
+            0.3
+          ],
+          "other": 62.5,
+          "selected": " cat",
+          "continuation": "cat, with a book on my desk, a small lamp on the table, a small lamp on the side of the desk, a\u2026"
+        },
+        {
+          "alpha": -1.5,
+          "percents": [
+            13.9,
+            30.1,
+            0.4
+          ],
+          "other": 55.6,
+          "selected": " pet",
+          "continuation": "pet, perhaps a small animal like a cat or a dog, nestled in a corner of my room."
+        },
+        {
+          "alpha": -1.0,
+          "percents": [
+            5.0,
+            42.1,
+            0.4
+          ],
+          "other": 52.5,
+          "selected": " pet",
+          "continuation": "pet, perhaps a furry friend or a gentle animal, surrounded by soft lighting and a comfortable, inviting surface."
+        },
+        {
+          "alpha": -0.5,
+          "percents": [
+            1.9,
+            47.9,
+            0.7
+          ],
+          "other": 49.5,
+          "selected": " pet",
+          "continuation": "pet in a cozy, comfortable space."
+        },
+        {
+          "alpha": 0.0,
+          "percents": [
+            0.6,
+            61.2,
+            1.6
+          ],
+          "other": 36.6,
+          "selected": " pet",
+          "continuation": "pet in a way that feels both intimate and comforting."
+        },
+        {
+          "alpha": 0.5,
+          "percents": [
+            0.2,
+            70.2,
+            5.3
+          ],
+          "other": 24.3,
+          "selected": " pet",
+          "continuation": "pet in a way that's both fun and fulfilling."
+        },
+        {
+          "alpha": 1.0,
+          "percents": [
+            0.1,
+            50.2,
+            20.3
+          ],
+          "other": 29.4,
+          "selected": " pet",
+          "continuation": "pet in many ways! Here are some examples: 1."
+        },
+        {
+          "alpha": 1.5,
+          "percents": [
+            0.1,
+            13.4,
+            43.1
+          ],
+          "other": 43.4,
+          "selected": " dog",
+          "continuation": "dog! The joy of running and playing with a dog is truly amazing."
+        },
+        {
+          "alpha": 2.0,
+          "percents": [
+            0.1,
+            1.2,
+            45.5
+          ],
+          "other": 53.2,
+          "selected": " dog",
+          "continuation": "dog! The joy of running and playing with dogs is exciting and fun."
+        }
+      ]
+    },
+    {
+      "id": "storyteller",
+      "title": "Storyteller",
+      "negative_label": "Calm",
+      "positive_label": "Dramatic",
+      "prompt": "Describe someone opening a door.",
+      "prefix": "The door opened rather",
+      "takeaway": "The door opens either way. The direction decides whether it happens quietly or loudly.",
+      "candidates": [
+        " quietly",
+        " slowly",
+        " loudly"
+      ],
+      "layer": 14,
+      "scale": 1.0,
+      "states": [
+        {
+          "alpha": -2.0,
+          "percents": [
+            50.8,
+            0.5,
+            0.0
+          ],
+          "other": 48.7,
+          "selected": " quietly",
+          "continuation": "quietly, with a gentle and deliberate approach."
+        },
+        {
+          "alpha": -1.5,
+          "percents": [
+            51.0,
+            1.4,
+            0.1
+          ],
+          "other": 47.5,
+          "selected": " quietly",
+          "continuation": "quietly, with a gentle touch."
+        },
+        {
+          "alpha": -1.0,
+          "percents": [
+            51.8,
+            3.6,
+            0.1
+          ],
+          "other": 44.5,
+          "selected": " quietly",
+          "continuation": "quietly, with a gentle touch."
+        },
+        {
+          "alpha": -0.5,
+          "percents": [
+            36.5,
+            8.7,
+            0.1
+          ],
+          "other": 54.7,
+          "selected": " quietly",
+          "continuation": "quietly, with a gentle touch from the person who was opening it."
+        },
+        {
+          "alpha": 0.0,
+          "percents": [
+            13.7,
+            20.4,
+            2.1
+          ],
+          "other": 63.8,
+          "selected": " slowly",
+          "continuation": "slowly, as if it was waiting for someone to come in."
+        },
+        {
+          "alpha": 0.5,
+          "percents": [
+            0.9,
+            4.2,
+            23.0
+          ],
+          "other": 71.9,
+          "selected": " loudly",
+          "continuation": "loudly, and the person inside was startled."
+        },
+        {
+          "alpha": 1.0,
+          "percents": [
+            0.1,
+            0.4,
+            29.9
+          ],
+          "other": 69.6,
+          "selected": " loudly",
+          "continuation": "loudly, and the sound echoed through the room."
+        },
+        {
+          "alpha": 1.5,
+          "percents": [
+            0.0,
+            0.2,
+            30.2
+          ],
+          "other": 69.6,
+          "selected": " loudly",
+          "continuation": "loudly, and the sound echoed through the room."
+        },
+        {
+          "alpha": 2.0,
+          "percents": [
+            0.0,
+            0.1,
+            33.3
+          ],
+          "other": 66.6,
+          "selected": " loudly",
+          "continuation": "loudly, and the sound echoed through the room."
+        }
+      ]
+    }
+  ]
+}

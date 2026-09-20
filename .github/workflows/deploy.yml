@@ -1,0 +1,137 @@
+# Deterministic CI for the steering showcase.
+#
+# Every push and pull request revalidates content/scenarios.md, regenerates the static data,
+# typechecks, runs the unit and browser tests, and builds. Only pushes to the deployment branch
+# (and manual runs) go on to publish through the official GitHub Pages actions, so invalid
+# scenario Markdown fails before deployment and the last successful site stays up.
+#
+# There is deliberately no paths filter: a fix to the parser, a component, the lockfile or this
+# workflow has to trigger a rebuild just as a content edit does.
+#
+# Measurement is NOT run here. `python scripts/measure_steering.py` downloads model weights and
+# rewrites content/scenarios.md, so it stays a deliberate local step whose result is reviewed in
+# a diff like any other change. CI validates whatever was committed.
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only by default. Only the deploy job is granted more.
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  verify:
+    name: Validate, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # Install from the lockfile, so CI builds what was reviewed.
+      - run: npm ci
+
+      - name: Validate scenario content
+        run: npm run content:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (parser and validation)
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install browser for end-to-end tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:e2e
+
+      - name: Build and serve under a repository-style base path
+        run: npm run check:base-path
+
+      - name: Upload the Playwright report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  build-pages:
+    name: Build Pages artifact
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # `base_path` comes from the Pages configuration itself: "" for a user or organisation site
+      # and for a custom domain, "/<repo>" for a project repository. Set the BASE_PATH repository
+      # variable only to override that.
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Build
+        env:
+          BASE_PATH: ${{ vars.BASE_PATH || steps.pages.outputs.base_path }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          # Optional override for the live Space. The committed default lives in .env; set this
+          # repository variable only to point a deployment somewhere else. It is exported below
+          # only when non-empty, because an unset Actions variable arrives as an empty string and
+          # would otherwise silently switch the live mode off.
+          SPACE_OVERRIDE: ${{ vars.PUBLIC_STEERING_SPACE }}
+        run: |
+          echo "Building with BASE_PATH='${BASE_PATH}' SITE_URL='${SITE_URL}'"
+          if [ -n "${SPACE_OVERRIDE}" ]; then
+            export PUBLIC_STEERING_SPACE="${SPACE_OVERRIDE}"
+            echo "Live Space (repository variable): ${PUBLIC_STEERING_SPACE}"
+          else
+            echo "Live Space: using the default in .env"
+          fi
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          # dist/.nojekyll is a hidden file and would otherwise be dropped.
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-pages
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Never let two deployments race; never cancel one part-way through.
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
