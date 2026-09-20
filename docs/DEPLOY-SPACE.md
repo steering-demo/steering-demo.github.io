@@ -132,6 +132,24 @@ model than the recorded measurements is self-explanatory rather than misleading.
   day at low queue priority. One request computes a whole scenario, so a visitor costs three
   calls, not one per slider move — but a traffic spike still hits the ceiling. This is why the
   recorded measurements are the floor, not a placeholder.
+
+  This is not hypothetical: it was hit during the first afternoon of testing. When it happens the
+  Space answers normally but the result frame is an error object rather than the usual array:
+
+  ```json
+  {"title": "ZeroGPU quota exceeded", "error": "You have exceeded your ZeroGPU runs limit..."}
+  ```
+
+  The page then shows "Live run unavailable — showing the recorded measurement" with a Retry
+  button, and stays completely usable. The allowance resets 24 hours after first use. To check
+  the state of a Space by hand:
+
+  ```bash
+  SPACE=https://<you>-steering-showcase.hf.space
+  EVENT=$(curl -s -X POST -H 'Content-Type: application/json' -d '{"data":["movie-critic"]}' \
+    "$SPACE/gradio_api/call/run_scenario" | python3 -c 'import sys,json;print(json.load(sys.stdin)["event_id"])')
+  curl -s "$SPACE/gradio_api/call/run_scenario/$EVENT" | tail -2
+  ```
 - **A free Space sleeps when idle.** The first request afterwards starts the container and reloads
   the model. The client allows a generous timeout and falls back cleanly.
 - **Do not commit the model.** `app.py` downloads it from the Hub at runtime. Nothing in the Space

@@ -234,7 +234,9 @@ Notes worth knowing before relying on it:
 - **Quotas are per visitor, and small.** Unauthenticated visitors get about 2 minutes of GPU per
   day at low queue priority. One request computes a whole scenario, so a visitor costs three
   calls rather than one per slider move &mdash; but a burst of traffic will still hit the ceiling,
-  which is exactly why the recorded measurements are the floor and not a placeholder.
+  which is exactly why the recorded measurements are the floor and not a placeholder. This was
+  hit for real during testing; the page fell back correctly and stayed usable. The allowance
+  resets 24 hours after first use.
 - **A free Space sleeps.** The first request after idling starts the container and loads the
   model, so the client allows a generous timeout and falls back cleanly.
 - **Gradio 4 and 5 serve the API at different paths.** The client tries
