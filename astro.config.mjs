@@ -58,13 +58,6 @@ export default defineConfig({
   base,
   output: 'static',
   trailingSlash: 'ignore',
-  // The showcase lives at the root. `/steering/` was the original route and has been handed out,
-  // so it stays as a redirect rather than becoming a dead link.
-  // With trailingSlash 'ignore' a single entry covers both /steering and /steering/; declaring
-  // both collides.
-  redirects: {
-    '/steering': '/',
-  },
   build: {
     /*
      * Everything the showcase needs lands under `dist/steering/`, so integrating into another

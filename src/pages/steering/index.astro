@@ -1,0 +1,24 @@
+---
+// The showcase used to live here and the URL has been handed out, so this stays as a redirect.
+//
+// Written by hand rather than with Astro's `redirects` config: that writes the destination
+// verbatim, so under a repository-style base path it would send visitors to the domain root
+// instead of to the site root.
+import { withBase } from '../../lib/url';
+
+const target = withBase('/');
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <link rel="canonical" href={target} />
+    <meta name="robots" content="noindex" />
+    <title>Redirecting to the steering showcase</title>
+  </head>
+  <body>
+    <p>This demo moved. <a href={target}>Continue to the showcase</a>.</p>
+  </body>
+</html>

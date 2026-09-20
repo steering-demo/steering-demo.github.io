@@ -40,7 +40,13 @@ try {
     if (!response.ok) failures.push(`${response.status} ${path}`);
   }
 
-  const html = await (await fetch(`${ORIGIN}${BASE}steering/`)).text();
+  // The legacy /steering/ route must point at the site root, base included - not the domain root.
+  const legacy = await (await fetch(`${ORIGIN}${BASE}steering/`)).text();
+  const target = /url=([^"']+)/.exec(legacy)?.[1]?.trim();
+  if (!target) failures.push('/steering/ no longer redirects anywhere');
+  else if (!target.startsWith(BASE)) failures.push(`/steering/ redirects to ${target}, outside ${BASE}`);
+
+  const html = await (await fetch(`${ORIGIN}${BASE}`)).text();
   // src=/href= attributes, plus the paths Astro writes inside inline module scripts as
   // import("/base/_astro/....js") - those carry the base too and must resolve.
   const urls = new Set([

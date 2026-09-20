@@ -111,7 +111,10 @@ test.describe('the live Space', () => {
   test('sends the chosen model', async ({ page }) => {
     const recorded = await stubSpace(page, 'ok');
     await page.goto('/');
-    await page.getByLabel('Model').selectOption({ index: 1 });
+    const select = page.getByLabel('Model');
+    await select.selectOption({ index: 1 });
+    // Wait for the selection to settle before running, or the request can carry the old model.
+    await expect(select).toHaveValue(/SmolLM2/);
     await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
     await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
 
