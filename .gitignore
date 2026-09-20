@@ -22,3 +22,10 @@ space/steering_scenarios.py
 # Local Python environment for the measurement pipeline
 .venv/
 __pycache__/
+
+# Internal working notes and briefs, not part of the published project.
+Claude_*.md
+
+# Secrets belong in .env.local, which is never committed (.env holds public defaults only).
+.env.local
+.env.*.local
