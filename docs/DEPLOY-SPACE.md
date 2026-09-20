@@ -118,6 +118,16 @@ Open `/steering/`. The pill under the heading should read **"Measured from …"*
 
 ## Changing the model
 
+## Tuning the cache
+
+`CACHE_TTL_SECONDS` (Space variable, default `900`) sets how long a measurement is reused before
+the next request recomputes it. The results never actually change — decoding is greedy over fixed
+prompts — so the TTL only controls how recent the page can claim the numbers are. Raise it to
+spend less quota; lower it if you want visitors to see a genuinely fresh run more often.
+
+`run_scenario_fresh` ignores the cache entirely and is what the page's **Run it again on the GPU**
+button calls.
+
 Set a **MODEL_ID** variable in the Space (**Settings → Variables and secrets**) to any causal LM
 the code can load, e.g. `HuggingFaceTB/SmolLM2-360M-Instruct`. The layer and coefficient in
 `steering_scenarios.py` were tuned for `Qwen2.5-0.5B-Instruct` and will need re-tuning for another
@@ -140,9 +150,14 @@ model than the recorded measurements is self-explanatory rather than misleading.
   {"title": "ZeroGPU quota exceeded", "error": "You have exceeded your ZeroGPU runs limit..."}
   ```
 
-  The page then shows "Live run unavailable — showing the recorded measurement" with a Retry
-  button, and stays completely usable. The allowance resets 24 hours after first use. To check
-  the state of a Space by hand:
+  Since then the Space caches its results, so this is far harder to hit: the computation is
+  deterministic, a cache hit costs no GPU time, and a failed fresh run falls back to the stored
+  result rather than erroring. Only a genuine cache miss — first visit after the Space sleeps, or
+  after the TTL expires — spends any quota at all.
+
+  When it cannot be avoided, the page shows "Live run unavailable — showing the recorded
+  measurement" with a Retry button, and stays completely usable. The allowance resets 24 hours
+  after first use. To check the state of a Space by hand:
 
   ```bash
   SPACE=https://<you>-steering-showcase.hf.space

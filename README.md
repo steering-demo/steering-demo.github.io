@@ -14,7 +14,7 @@ The page runs in two modes, and always tells the visitor which one it is in:
 | Mode | What happens |
 | --- | --- |
 | **Recorded** (default) | Measurements taken by `scripts/measure_steering.py` are bundled into the page. Instant, no network, works forever. |
-| **Live** | If `PUBLIC_STEERING_SPACE` is set, the page asks a Hugging Face Space to recompute each scenario during the visit, and swaps the results in. |
+| **Live** | If `PUBLIC_STEERING_SPACE` is set, the page asks a Hugging Face Space for each scenario during the visit and swaps the results in. The Space runs the real model; because the computation is deterministic it caches the answer, so most visits cost no GPU time at all. |
 
 Live never gates the experience: the recorded measurements render immediately and stay on screen
 if the Space is asleep, out of quota, or unreachable. One request per scenario computes all nine
@@ -231,12 +231,21 @@ it.
 
 Notes worth knowing before relying on it:
 
-- **Quotas are per visitor, and small.** Unauthenticated visitors get about 2 minutes of GPU per
-  day at low queue priority. One request computes a whole scenario, so a visitor costs three
-  calls rather than one per slider move &mdash; but a burst of traffic will still hit the ceiling,
-  which is exactly why the recorded measurements are the floor and not a placeholder. This was
-  hit for real during testing; the page fell back correctly and stayed usable. The allowance
-  resets 24 hours after first use.
+- **Quotas are per caller, and small.** Unauthenticated visitors get about 2 minutes of GPU per
+  day at low queue priority &mdash; their own allowance, not a shared pool. This was exhausted for
+  real during testing; the page fell back correctly and stayed usable, and the allowance resets 24
+  hours after first use.
+
+  **The Space caches to avoid spending it.** Greedy decoding over fixed prompts and a fixed alpha
+  grid is deterministic, so a scenario produces byte-identical output every time. Only the
+  measurement is GPU-decorated; a cache hit allocates nothing (7.4s &rarr; 0.07s). A visitor
+  arriving within the TTL costs zero GPU time. If a fresh run fails, a stale cached result is
+  served rather than an error, because the numbers would have been identical anyway. Set
+  `CACHE_TTL_SECONDS` on the Space to change the window (default 900).
+
+  The page never claims more than it did: a stored result reads "Computed on Hugging Face &hellip;,
+  12 min ago" rather than "just now", and **Run it again on the GPU** forces a real run for anyone
+  who wants to watch it happen.
 - **A free Space sleeps.** The first request after idling starts the container and loads the
   model, so the client allows a generous timeout and falls back cleanly.
 - **Gradio 4 and 5 serve the API at different paths.** The client tries
