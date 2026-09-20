@@ -3,12 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { SPACE_STUB } from '../../playwright.config';
 
 /**
- * Out-of-order and stale live replies.
+ * Stale live replies, and what the page says about where a result came from.
  *
- * The component used to guard against these by comparing a key captured when the request started
- * against a key rebuilt from the same render closure. Both came from the same snapshot, so the
- * comparison passed for every reply, however stale, and nothing was ever rejected. These tests
- * hold a reply open, move the visitor on, and then release it.
+ * The component used to guard against stale replies by comparing a key captured when the request
+ * started against a key rebuilt from the same render closure. Both came from the same snapshot,
+ * so the comparison always matched and no reply was ever rejected.
  */
 
 const ALPHAS = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
@@ -82,10 +81,18 @@ async function programSpace(page: Page, programme: Step[]) {
         await route.fulfill({ status: step.status ?? 503, body: 'no' });
         return;
       }
+      // The real Space echoes the prompt and prefix it measured, which is what the page builds
+      // the result's identity from. A stub that returned fixed text would make every custom run
+      // look like it had answered a different question.
+      const call = calls[index];
+      const body =
+        call?.fn === 'run_custom'
+          ? { ...step.payload, prompt: call.data[0], prefix: call.data[1] }
+          : step.payload;
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',
-        body: `event: complete\ndata: ${JSON.stringify([JSON.stringify(step.payload)])}\n\n`,
+        body: `event: complete\ndata: ${JSON.stringify([JSON.stringify(body)])}\n\n`,
       });
     } catch {
       // The browser abandoned this request when the visitor moved on. That is the behaviour
@@ -252,5 +259,30 @@ test.describe('what the page says about where a result came from', () => {
     await explanation.getByText('How this works').click();
     await expect(explanation).toContainText('did not complete');
     await expect(explanation).toContainText('ZeroGPU quota exceeded');
+  });
+});
+
+test.describe('the editor and the results on screen', () => {
+  test('says so while an edited prompt has not been run', async ({ page }) => {
+    await programSpace(page, [{ delayMs: 0, payload: payloadFor('stub-org/Current-Model', FAST) }]);
+    await page.goto('/');
+
+    // Nothing is stale before anything is edited.
+    await expect(page.getByText(/Showing the saved example/)).toHaveCount(0);
+
+    await page.getByLabel(/^Prompt/).fill('Describe a rainy afternoon.');
+    await expect(page.getByText(/Showing the saved example/)).toBeVisible();
+    // The numbers underneath are still the saved ones, and still labelled as such.
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
+
+    // Running the edited prompt resolves it.
+    await page.getByRole('button', { name: /Run my prompt on the GPU/ }).click();
+    await expect(page.getByText(/Current-Model/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Showing the saved example/)).toHaveCount(0);
+
+    // And going back to the saved example clears the draft with it.
+    await page.getByRole('button', { name: /Back to the saved example/ }).click();
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
+    await expect(page.getByText(/Showing the saved example/)).toHaveCount(0);
   });
 });
