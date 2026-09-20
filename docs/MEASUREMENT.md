@@ -53,17 +53,34 @@ Measured, not asserted. Re-running `scripts/measure_steering.py` reproduces thes
 | The run is deterministic | The full measurement run executed twice on the same machine | Byte-identical tables |
 | The shown token is the model's argmax | The content validator rejects any state whose `Selected` is not the maximum candidate, and the payload carries the argmax by index | Enforced at build time, on every build |
 | The continuation starts with the shown token | Validator check, plus `tests/python/test_steering_core.py` | Enforced at build time |
+| CPU and GPU agree closely enough for the page | All 27 states re-run on the Space's GPU and compared against the recorded CPU values, by `scripts/compare_devices.py` | Worst relative difference `8.19e-05`; **0** argmax disagreements; all 27 continuations byte-identical |
 
 The `alpha = 0` comparison is run for each scenario on every measurement run and stored in
 `docs/measurement-report.json` under `identity_at_zero`.
 
+### CPU against GPU
+
+Shared source is not evidence of identical output, so this was measured rather than assumed:
+
+```bash
+python scripts/compare_devices.py --token hf_...
+```
+
+All 27 states were re-run on the Space (ZeroGPU A10G, `cuda:0`, float32) and compared against the
+recorded CPU values. Probabilities agree to within a relative difference of `8.19e-05`, every
+state selects the same token, and every one of the 27 generated continuations is byte-identical.
+
+They are **not** bit-identical, and the page does not claim they are: the smallest shipped value
+reads `0.000173507%` on CPU and `0.000173499%` on GPU. A difference large enough to matter would
+show up as an argmax disagreement, because that is what would change the token on screen; none
+occurred. This says nothing about other GPUs, other models, or other driver versions, and a live
+result is still labelled as computed by the Space rather than presented as the recorded one.
+
 ### What is not established
 
-- **CPU and GPU results have not been compared.** The offline pipeline and the Hugging Face Space
-  share `steering_core.py`, but shared source is not evidence of identical output: different
-  hardware, dtype and kernels can differ in the last bits, and that can change an argmax where two
-  tokens are nearly tied. No such comparison has been run. A live result is labelled as computed
-  by the Space, and is not claimed to be identical to the recorded one.
+- The device comparison above is a single run against one GPU type. It is not a claim that any GPU
+  reproduces the recorded numbers, and a near-tie between two candidates could still resolve
+  differently on hardware not tested here.
 - No independent replication of the layer/coefficient sweep; those are **selected demonstration
   settings**, chosen because the intended contrast showed clearly, not evidence that steering
   works this well in general.

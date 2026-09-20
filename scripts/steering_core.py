@@ -8,9 +8,10 @@ then add a signed multiple of it to the residual stream at one layer while the m
     h' = h + alpha * c * v
 
 Nothing here is specific to a hosting environment, so the Space and the offline pipeline run the
-same procedure. That is not a claim that they produce the same numbers: they run on different
-hardware with different kernels, and no comparison between them has been made. See the "what is
-not established" section of docs/MEASUREMENT.md.
+same procedure. Running the same procedure is not the same as producing the same numbers, so the
+two were compared directly: across all 27 states they agree to within 8.2e-05 relative, select the
+same token everywhere, and generate byte-identical continuations. They are not bit-identical. See
+docs/MEASUREMENT.md and scripts/compare_devices.py.
 """
 
 from dataclasses import dataclass, field
