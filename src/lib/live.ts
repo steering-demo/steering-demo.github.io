@@ -14,11 +14,17 @@ import { ALPHAS_KEY, type Candidate, type Scenario, type SteeringState } from '.
 /** Gradio 5 serves the API under /gradio_api; Gradio 4 serves it at the root. */
 const API_PREFIXES = ['/gradio_api/call', '/call'] as const;
 const FUNCTION_NAME = 'run_scenario';
+/** Bypasses the Space's cache and spends GPU time on a real run. */
+const FUNCTION_NAME_FRESH = 'run_scenario_fresh';
 
 export interface LiveResult {
   scenario: Scenario;
   model: string;
   device: string;
+  /** True when the Space served a stored result rather than running the model again. */
+  cached: boolean;
+  /** How old that stored result is, in seconds. 0 for a fresh run. */
+  ageSeconds: number;
 }
 
 interface SpacePayload {
@@ -34,6 +40,8 @@ interface SpacePayload {
   scale: number;
   model?: string;
   device?: string;
+  cached?: boolean;
+  age_seconds?: number;
   error?: string;
   states: {
     alpha: number;
@@ -159,8 +167,9 @@ async function callOnce(
   prefix: string,
   scenarioId: string,
   signal: AbortSignal,
+  fresh: boolean,
 ): Promise<SpacePayload> {
-  const endpoint = `${base}${prefix}/${FUNCTION_NAME}`;
+  const endpoint = `${base}${prefix}/${fresh ? FUNCTION_NAME_FRESH : FUNCTION_NAME}`;
 
   const started = await fetch(endpoint, {
     method: 'POST',
@@ -196,7 +205,11 @@ async function callOnce(
 export async function runLiveScenario(
   spaceUrl: string,
   scenarioId: string,
-  { signal, timeoutMs = 120_000 }: { signal?: AbortSignal; timeoutMs?: number } = {},
+  {
+    signal,
+    timeoutMs = 120_000,
+    fresh = false,
+  }: { signal?: AbortSignal; timeoutMs?: number; fresh?: boolean } = {},
 ): Promise<LiveResult> {
   const base = normalizeBase(spaceUrl);
   const controller = new AbortController();
@@ -211,13 +224,15 @@ export async function runLiveScenario(
       : [...API_PREFIXES];
     for (const prefix of order) {
       try {
-        const payload = await callOnce(base, prefix, scenarioId, controller.signal);
+        const payload = await callOnce(base, prefix, scenarioId, controller.signal, fresh);
         assertUsable(payload);
         knownPrefix = prefix;
         return {
           scenario: toScenario(payload),
           model: payload.model ?? 'unknown model',
           device: payload.device ?? '',
+          cached: payload.cached === true,
+          ageSeconds: Number.isFinite(payload.age_seconds) ? Number(payload.age_seconds) : 0,
         };
       } catch (error) {
         lastError = error;

@@ -33,9 +33,12 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
   const [stateIndex, setStateIndex] = useState(NEUTRAL_INDEX);
   const [live, setLive] = useState<Record<string, Scenario>>({});
   const [liveModel, setLiveModel] = useState<string>();
+  const [liveCached, setLiveCached] = useState(false);
+  const [liveAge, setLiveAge] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>(spaceUrl ? 'loading' : 'off');
   const [liveError, setLiveError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
+  const [forceFresh, setForceFresh] = useState(false);
   const panelId = useId();
 
   const recorded = useMemo(
@@ -65,11 +68,13 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
     setLiveStatus('loading');
     setLiveError(undefined);
 
-    runLiveScenario(spaceUrl, recorded.id, { signal: controller.signal })
+    runLiveScenario(spaceUrl, recorded.id, { signal: controller.signal, fresh: forceFresh })
       .then((result) => {
         if (controller.signal.aborted) return;
         setLive((current) => ({ ...current, [recorded.id]: result.scenario }));
         setLiveModel(result.model);
+        setLiveCached(result.cached);
+        setLiveAge(result.ageSeconds);
         setLiveStatus('live');
       })
       .catch((error: unknown) => {
@@ -79,16 +84,24 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
       });
 
     return () => controller.abort();
+    // `forceFresh` is read at call time on purpose: it must not re-trigger the effect by itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceUrl, recorded.id, live, attempt]);
 
-  const retryLive = useCallback(() => {
-    setLive((current) => {
-      const next = { ...current };
-      delete next[recorded.id];
-      return next;
-    });
-    setAttempt((value) => value + 1);
-  }, [recorded.id]);
+  const requestLive = useCallback(
+    (fresh: boolean) => {
+      setForceFresh(fresh);
+      setLive((current) => {
+        const next = { ...current };
+        delete next[recorded.id];
+        return next;
+      });
+      setAttempt((value) => value + 1);
+    },
+    [recorded.id],
+  );
+  const retryLive = useCallback(() => requestLive(false), [requestLive]);
+  const recomputeLive = useCallback(() => requestLive(true), [requestLive]);
 
   const state = scenario.states[stateIndex] ?? scenario.states[NEUTRAL_INDEX];
   const isLive = liveStatus === 'live' && Boolean(live[recorded.id]);
@@ -167,7 +180,10 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
           error={liveError}
           layer={scenario.layer}
           coefficient={scenario.coefficient}
+          cached={liveCached}
+          ageSeconds={liveAge}
           onRetry={retryLive}
+          onRecompute={recomputeLive}
         />
       </div>
 

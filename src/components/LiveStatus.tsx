@@ -2,6 +2,15 @@ import type { Provenance } from '../lib/types';
 
 export type LiveStatus = 'off' | 'loading' | 'live' | 'error';
 
+/** Plain-English age, so a stored result never pretends to be a fresh one. */
+function describeAge(seconds: number): string {
+  if (seconds < 90) return 'moments ago';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  return hours === 1 ? 'an hour ago' : `${hours} hours ago`;
+}
+
 export interface LiveStatusBarProps {
   provenance?: Provenance;
   status: LiveStatus;
@@ -9,7 +18,12 @@ export interface LiveStatusBarProps {
   error?: string;
   layer?: number;
   coefficient?: number;
+  /** The Space served a stored result rather than running the model again. */
+  cached?: boolean;
+  ageSeconds?: number;
   onRetry?: () => void;
+  /** Spend GPU time on a real run, ignoring the Space's cache. */
+  onRecompute?: () => void;
 }
 
 function Pill({ children, tone = 'quiet' }: { children: React.ReactNode; tone?: 'quiet' | 'active' }) {
@@ -39,7 +53,10 @@ export function LiveStatusBar({
   error,
   layer,
   coefficient,
+  cached = false,
+  ageSeconds = 0,
   onRetry,
+  onRecompute,
 }: LiveStatusBarProps) {
   const model = (status === 'live' ? liveModel : provenance?.model) ?? provenance?.model;
   const shortModel = model?.split('/').pop() ?? 'an unpublished model';
@@ -53,22 +70,31 @@ export function LiveStatusBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/*
+        The pill is a flex row, so every fragment inside it becomes a flex item and picks up the
+        gap. All of the prose therefore lives in one child, or punctuation drifts away from the
+        word it belongs to.
+      */}
       {status === 'live' ? (
         <Pill tone="active">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-token-pos)]" />
-          Computed live just now by <span className="font-mono">{shortModel}</span>
-          {settings}
+          <span>
+            {cached ? 'Computed on Hugging Face ' : 'Computed live just now by '}
+            <span className="font-mono">{shortModel}</span>
+            {cached ? `, ${describeAge(ageSeconds)}` : ''}
+            {settings}
+          </span>
         </Pill>
       ) : (
         <Pill>
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-ink-3)]" />
           {provenance ? (
-            <>
+            <span>
               Measured from <span className="font-mono">{shortModel}</span>
               {settings}
-            </>
+            </span>
           ) : (
-            <>Illustrative data &middot; no model</>
+            <span>Illustrative data &middot; no model</span>
           )}
         </Pill>
       )}
@@ -80,6 +106,18 @@ export function LiveStatusBar({
             className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--color-token-neg)]"
           />
           Running it live on Hugging Face&hellip;
+        </Pill>
+      )}
+
+      {status === 'live' && cached && onRecompute && (
+        <Pill>
+          <button
+            type="button"
+            onClick={onRecompute}
+            className="underline underline-offset-2 hover:text-[var(--color-ink)]"
+          >
+            Run it again on the GPU
+          </button>
         </Pill>
       )}
 
