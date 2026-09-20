@@ -87,6 +87,48 @@ describe('the live Space client', () => {
     );
   });
 
+  it('reports an exhausted ZeroGPU quota in the words the Space used', async () => {
+    // Gradio signals a failed run with a JSON object frame, not the usual array.
+    const quota = {
+      error:
+        'You have exceeded your ZeroGPU runs limit. Authenticate with a Hugging Face token for more quota',
+      duration: 10,
+      visible: true,
+      title: 'ZeroGPU quota exceeded',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/run_scenario')) {
+          return new Response(JSON.stringify({ event_id: 'e' }), { status: 200 });
+        }
+        return new Response(`event: error\ndata: ${JSON.stringify(quota)}\n\n`, { status: 200 });
+      }),
+    );
+    await expect(runLiveScenario('https://example.hf.space', 'movie-critic')).rejects.toThrow(
+      /ZeroGPU quota exceeded/,
+    );
+  });
+
+  it('stops probing API paths once one has answered', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.endsWith('/run_scenario')) {
+          return new Response(JSON.stringify({ event_id: 'e' }), { status: 200 });
+        }
+        return new Response('event: error\ndata: {"title":"boom"}\n\n', { status: 200 });
+      }),
+    );
+    await expect(runLiveScenario('https://example.hf.space', 'movie-critic')).rejects.toThrow(/boom/);
+    // One POST and one stream read - no pointless retry against the other prefix.
+    expect(calls.filter((url) => url.includes('/call/run_scenario')).length).toBe(2);
+  });
+
   it('rejects an error reported by the Space', async () => {
     stubFetch({ error: 'unknown scenario' });
     await expect(runLiveScenario('https://example.hf.space', 'nope')).rejects.toThrow(

@@ -47,6 +47,12 @@ interface SpacePayload {
 export class LiveError extends Error {}
 
 /**
+ * The Space answered, but not on this API path. Only this is worth retrying on the other prefix;
+ * anything else is a real failure and should be reported as itself.
+ */
+class LiveRouteError extends LiveError {}
+
+/**
  * Which API prefix this Space answers on, remembered after the first successful call.
  *
  * A hosted Space runs Gradio 5 and answers on /gradio_api straight away. Only a Gradio 4 Space
@@ -58,7 +64,13 @@ function normalizeBase(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
 
-/** Pulls the final `data:` frame out of Gradio's server-sent event stream. */
+/**
+ * Pulls the final `data:` frame out of Gradio's server-sent event stream.
+ *
+ * A successful run arrives as a JSON array. A failed one arrives as a JSON object carrying
+ * `title` and `error` - that is how an exhausted ZeroGPU quota reports itself - and its message
+ * is far more useful to show than a generic failure.
+ */
 function lastDataFrame(stream: string): unknown[] {
   const frames = stream
     .split(/\r?\n/)
@@ -66,15 +78,23 @@ function lastDataFrame(stream: string): unknown[] {
     .map((line) => line.slice(6));
   if (frames.length === 0) throw new LiveError('the Space returned no data');
 
+  let reported: string | undefined;
   for (let i = frames.length - 1; i >= 0; i -= 1) {
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(frames[i]);
-      if (Array.isArray(parsed)) return parsed;
+      parsed = JSON.parse(frames[i]);
     } catch {
-      // Heartbeat and status frames are not JSON arrays; keep looking backwards.
+      continue; // heartbeat and status frames are not JSON
+    }
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object' && reported === undefined) {
+      const frame = parsed as { title?: unknown; error?: unknown };
+      const title = typeof frame.title === 'string' ? frame.title : undefined;
+      const detail = typeof frame.error === 'string' ? frame.error : undefined;
+      if (title || detail) reported = title && detail ? `${title}: ${detail}` : (title ?? detail);
     }
   }
-  throw new LiveError('the Space returned no result frame');
+  throw new LiveError(reported ?? 'the Space returned no result frame');
 }
 
 function toScenario(payload: SpacePayload): Scenario {
@@ -148,7 +168,12 @@ async function callOnce(
     body: JSON.stringify({ data: [scenarioId] }),
     signal,
   });
+  // 404/405 means this Gradio version serves the API elsewhere; anything else is a real failure.
+  if (started.status === 404 || started.status === 405) {
+    throw new LiveRouteError(`no API at ${prefix}`);
+  }
   if (!started.ok) throw new LiveError(`the Space replied ${started.status}`);
+  knownPrefix = prefix;
 
   const { event_id: eventId } = (await started.json()) as { event_id?: string };
   if (!eventId) throw new LiveError('the Space did not start a job');
@@ -195,9 +220,11 @@ export async function runLiveScenario(
           device: payload.device ?? '',
         };
       } catch (error) {
-        // A 404 just means this Gradio version serves the API at the other path.
         lastError = error;
         if (controller.signal.aborted) break;
+        // Only a routing miss is worth trying the other prefix for. Retrying a genuine failure
+        // there just produces a second error and a misleading message.
+        if (!(error instanceof LiveRouteError)) break;
       }
     }
     throw lastError instanceof Error ? lastError : new LiveError('the Space could not be reached');
