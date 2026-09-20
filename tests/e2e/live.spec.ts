@@ -92,17 +92,17 @@ test.describe('the live Space', () => {
 
     // Loading the page must not spend anyone's GPU quota.
     expect(recorded.calls).toEqual([]);
-    await expect(page.getByText(/Measured from/)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Run it live on the GPU/ })).toBeVisible();
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Run this example on the GPU/ })).toBeVisible();
   });
 
   test('runs on demand and swaps the results in', async ({ page }) => {
     const recorded = await stubSpace(page, 'ok', 700);
     await page.goto('/');
-    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
 
     await expect(page.getByRole('button', { name: /Running on the GPU/ })).toBeVisible();
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(LIVE_SENTENCE, { exact: false }).first()).toBeVisible();
     await expect(page.getByText(/layer 42/).first()).toBeVisible();
     expect(recorded.calls[0].fn).toBe('run_model');
@@ -111,12 +111,12 @@ test.describe('the live Space', () => {
   test('sends the chosen model', async ({ page }) => {
     const recorded = await stubSpace(page, 'ok');
     await page.goto('/');
-    const select = page.getByLabel('Model');
+    const select = page.getByLabel('Model for live run');
     await select.selectOption({ index: 1 });
     // Wait for the selection to settle before running, or the request can carry the old model.
     await expect(select).toHaveValue(/SmolLM2/);
-    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
 
     expect(recorded.calls[0].data[1]).toContain('SmolLM2');
   });
@@ -127,7 +127,7 @@ test.describe('the live Space', () => {
     await page.getByLabel(/^Prompt/).fill('Describe a rainy afternoon.');
     await expect(page.getByRole('button', { name: /Run my prompt on the GPU/ })).toBeVisible();
     await page.getByRole('button', { name: /Run my prompt on the GPU/ }).click();
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
 
     expect(recorded.calls[0].fn).toBe('run_custom');
     expect(recorded.calls[0].data[0]).toBe('Describe a rainy afternoon.');
@@ -138,14 +138,14 @@ test.describe('the live Space', () => {
     await stubSpace(page, 'fail');
     await page.goto('/');
     // Nothing is wrong before the visitor asks for anything.
-    await expect(page.getByText(/Measured from/)).toBeVisible();
-    await expect(page.getByText(/did not finish|replied 503/)).toHaveCount(0);
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
+    await expect(page.getByText(/did not finish/)).toHaveCount(0);
 
-    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
-    await expect(page.getByText(/replied 503|did not finish/).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/did not finish/).first()).toBeVisible({ timeout: 20_000 });
 
     // The recorded measurement is untouched and the page still works.
-    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
     await page.getByRole('button', { name: /Set alpha to minus 2\.0/ }).click();
     await expect(page.locator('#alpha-slider')).toHaveValue('-2');
   });
@@ -153,19 +153,19 @@ test.describe('the live Space', () => {
   test('goes back to the recorded run on request', async ({ page }) => {
     await stubSpace(page, 'ok');
     await page.goto('/');
-    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
 
-    await page.getByRole('button', { name: /Back to the recorded run/ }).click();
-    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await page.getByRole('button', { name: /Back to the saved example/ }).click();
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
     await expect(page.getByText(scenarios[0].states[4].continuation, { exact: false }).first()).toBeVisible();
   });
 
   test('the slider stays local after a live run', async ({ page }) => {
     const recorded = await stubSpace(page, 'ok');
     await page.goto('/');
-    await page.getByRole('button', { name: /Run it live on the GPU/ }).click();
-    await expect(page.getByText(/Computed live just now/)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
 
     const before = recorded.calls.length;
     await page.locator('#alpha-slider').focus();
@@ -179,7 +179,7 @@ test.describe('the live Space', () => {
     await page.goto('/?live=0');
     await page.waitForTimeout(1200);
     expect(recorded.calls).toEqual([]);
-    await expect(page.getByRole('button', { name: /Run it live/ })).toHaveCount(0);
-    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /on the GPU/ })).toHaveCount(0);
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
   });
 });

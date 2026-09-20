@@ -54,6 +54,7 @@ interface SpacePayload {
     other: number;
     selected: string;
     continuation: string;
+    truncated?: boolean;
   }[];
 }
 
@@ -130,6 +131,7 @@ function toScenario(payload: SpacePayload): Scenario {
       selectedId: candidates[selectedIndex].id,
       selectedIndex,
       continuation: state.continuation,
+      truncated: state.truncated === true,
     };
   });
 

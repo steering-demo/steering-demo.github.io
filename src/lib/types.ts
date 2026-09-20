@@ -38,8 +38,10 @@ export interface SteeringState {
   selectedId: string;
   /** Index of `selectedId` within `Scenario.candidates`. */
   selectedIndex: number;
-  /** Authored continuation, beginning with the selected candidate's label. */
+  /** The model's own continuation, beginning with the selected candidate's label. */
   continuation: string;
+  /** True when generation stopped at the token limit rather than finishing. */
+  truncated: boolean;
 }
 
 /** Where the numbers came from. Absent when the content is authored rather than measured. */

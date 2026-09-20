@@ -86,11 +86,11 @@ def render_markdown(payloads, model_id: str, measured_on: str) -> str:
         for key, token in zip(ids, payload["candidates"]):
             lines.append(f"| {key} | `{token}` |")
 
-        header = " | ".join(["Alpha", *ids, "Other", "Selected", "Continuation"])
+        header = " | ".join(["Alpha", *ids, "Other", "Selected", "Stopped", "Continuation"])
         lines += [
             "",
             f"| {header} |",
-            "| " + " | ".join(["---"] * (len(ids) + 4)) + " |",
+            "| " + " | ".join(["---"] * (len(ids) + 5)) + " |",
         ]
         for state in payload["states"]:
             selected = ids[payload["candidates"].index(state["selected"])]
@@ -99,6 +99,7 @@ def render_markdown(payloads, model_id: str, measured_on: str) -> str:
                 *[f"{value:g}" for value in state["percents"]],
                 f"{state['other']:g}",
                 selected,
+                "limit" if state.get("truncated") else "end",
                 escape_cell(state["continuation"]),
             ]
             lines.append("| " + " | ".join(cells) + " |")
@@ -137,7 +138,7 @@ def main() -> int:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--out", default=str(ROOT / "content" / "scenarios.md"))
     parser.add_argument("--report", default=str(ROOT / "docs" / "measurement-report.json"))
-    parser.add_argument("--max-new-tokens", type=int, default=28)
+    parser.add_argument("--max-new-tokens", type=int, default=40)
     parser.add_argument("--sweep", action="store_true", help="re-tune layer and coefficient")
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()

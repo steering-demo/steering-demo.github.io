@@ -3,9 +3,9 @@ import Base from '../layouts/Base.astro';
 import { SteeringShowcase } from '../components/SteeringShowcase';
 import { provenance, scenarios } from '../data/scenarios';
 
-const title = 'Inside the Model: Steering Its Next Move';
+const title = 'Explore Representation Steering';
 const description =
-  'An interactive explainer for representation steering: keep the prompt fixed, add a steering direction to the internal representation, and watch the next-token probabilities and the continuation change. Real measurements from a small open-weights model.';
+  'An interactive explainer for representation steering. The prompt stays fixed while a steering vector is added to the model\'s internal representation, and the next-token probabilities and the response change with it. Precomputed measurements from a small open-weights model.';
 
 // The Hugging Face Space that runs the model. With one set, the page recomputes each scenario
 // live; without one, it ships the recorded measurements alone.
@@ -27,8 +27,8 @@ const spaceUrl =
         {title}
       </h1>
       <p class="mt-3 text-[16px] leading-relaxed text-[var(--color-ink-2)] sm:text-[17px]">
-        Same prompt, same opening words. The slider edits the model&rsquo;s internal state as it
-        writes &mdash; and its next word changes with it.
+        Move the slider to see how steering changes a model&rsquo;s response to the same prompt.
+        These results were computed in advance.
       </p>
     </header>
 

@@ -41,8 +41,13 @@ async function readTable(page: Page): Promise<{ label: string; value: number; ne
       const cells = row.querySelectorAll('th, td');
       return {
         label: cells[0].textContent ?? '',
-        value: Number.parseFloat(cells[1].textContent ?? ''),
-        neutral: Number.parseFloat(cells[2].textContent ?? ''),
+        // "<0.1%" renders for a small but non-zero probability; treat it as such.
+        value: (cells[1].textContent ?? '').startsWith('<')
+          ? 0.05
+          : Number.parseFloat(cells[1].textContent ?? ''),
+        neutral: (cells[2].textContent ?? '').startsWith('<')
+          ? 0.05
+          : Number.parseFloat(cells[2].textContent ?? ''),
       };
     });
   });
@@ -79,9 +84,9 @@ test.describe('representation steering showcase', () => {
 
     await page.goto(PAGE);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Inside the Model: Steering Its Next Move',
+      'Explore Representation Steering',
     );
-    await expect(page.getByText(/Measured from/)).toBeVisible();
+    await expect(page.getByText(/Precomputed results/)).toBeVisible();
     await page.waitForTimeout(500);
 
     expect(problems, problems.join('\n')).toEqual([]);
@@ -169,13 +174,14 @@ test.describe('representation steering showcase', () => {
         expect(rows).toHaveLength(scenario.candidates.length + 1);
         scenario.candidates.forEach((candidate, index) => {
           expect(rows[index].label).toBe(candidate.label);
-          expect(rows[index].value, `${scenario.id} @ ${state.alpha} ${candidate.id}`).toBe(
-            state.probabilities[index],
+          const expected = state.probabilities[index];
+          expect(rows[index].value, `${scenario.id} @ ${state.alpha} ${candidate.id}`).toBeCloseTo(
+            expected < 0.1 && expected > 0 ? 0.05 : Number(expected.toFixed(1)),
+            1,
           );
-          expect(rows[index].neutral).toBe(scenario.states[4].probabilities[index]);
         });
-        expect(rows.at(-1)!.value).toBe(state.other);
-        expect(rows.reduce((sum, row) => sum + row.value, 0)).toBe(100);
+        expect(rows.at(-1)!.value).toBeCloseTo(Number(state.other.toFixed(1)), 1);
+        expect(rows.reduce((sum, row) => sum + row.value, 0)).toBeCloseTo(100, 0);
 
         // The completion begins with the candidate the table shows as the highest.
         const highest = rows
@@ -223,17 +229,17 @@ test.describe('representation steering showcase', () => {
   test('the neutral reference stays fixed and reset returns to it', async ({ page }) => {
     await page.goto(PAGE);
     const movie = scenarios[0];
-    const reference = page.getByRole('heading', { name: /Neutral reference/i }).locator('..');
+    const reference = page.getByRole('heading', { name: /Without steering/i }).locator('..');
 
     await expect(reference).toContainText(movie.states[4].continuation);
     await page.getByRole('button', { name: /Set alpha to minus 2\.0/ }).click();
     await expect(reference).toContainText(movie.states[4].continuation);
 
-    const reset = page.getByRole('button', { name: 'Reset to neutral' });
+    const reset = page.getByRole('button', { name: /Reset to \u03b1 = 0/ });
     await expect(reset).toBeEnabled();
     await reset.click();
     await expect(page.locator('#alpha-slider')).toHaveValue('0');
-    await expect(page.getByRole('button', { name: 'At neutral' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /At \u03b1 = 0/ })).toBeDisabled();
   });
 
   test('moving the slider makes no network requests', async ({ page }) => {
@@ -262,8 +268,12 @@ test.describe('representation steering showcase', () => {
     const final = movie.states.at(-1)!;
 
     // The numbers are correct immediately, before the bars finish easing.
+    // The table formats to one decimal, so compare against the same rounding.
+    const toShown = (value: number) => (value > 0 && value < 0.1 ? 0.05 : Number(value.toFixed(1)));
     const rowsNow = await readTable(page);
-    expect(rowsNow.map((row) => row.value)).toEqual([...final.probabilities, final.other]);
+    expect(rowsNow.map((row) => row.value)).toEqual(
+      [...final.probabilities, final.other].map(toShown),
+    );
 
     await page.waitForTimeout(500);
     const settled = await barWidths(page);
@@ -281,7 +291,7 @@ test.describe('representation steering showcase', () => {
     expect(valueText).toContain(scenarios[0].positiveLabel);
     const expected = scenarios[0].candidates[scenarios[0].states[7].selectedIndex].label;
     expect(valueText).toContain(expected);
-    await expect(page.locator('[aria-live="polite"]')).toHaveCount(2);
+    await expect(page.locator('[aria-live="polite"]')).toHaveCount(1);
   });
 
   test('the explainer is expandable and states the caveats', async ({ page }) => {
@@ -290,10 +300,10 @@ test.describe('representation steering showcase', () => {
     await expect(details).not.toHaveAttribute('open', '');
     await page.getByText('How this works').click();
     await expect(details).toHaveAttribute('open', '');
-    await expect(details).toContainText('one position only');
-    await expect(details).toContainText('not a token');
-    await expect(details).toContainText('not smooth or symmetric');
-    await expect(details).toContainText('These numbers are real');
+    await expect(details).toContainText('immediately after the fixed opening words');
+    await expect(details).toContainText('combined remainder of the vocabulary');
+    await expect(details).toContainText('greedy decoding');
+    await expect(details).toContainText('selected demonstration settings');
   });
 
   for (const [name, width, height] of [

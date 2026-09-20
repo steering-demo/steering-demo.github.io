@@ -1,3 +1,5 @@
+import { formatPercent } from '../lib/result';
+
 export interface CompletionPanelProps {
   prefix: string;
   continuation: string;
@@ -29,17 +31,17 @@ export function CompletionPanel({
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-          Generated continuation
+          Model response
         </h3>
         <p className="text-[12px] text-[var(--color-ink-3)]">
-          first token{' '}
+          Next token:{' '}
           <span
             className="rounded px-1 font-mono text-[var(--color-ink)]"
             style={{ background: `color-mix(in oklab, ${color} 26%, transparent)` }}
           >
             {head}
           </span>{' '}
-          <span className="tabular-nums">{probability}%</span>
+          <span className="tabular-nums">&middot; {formatPercent(probability)}</span>
         </p>
       </div>
 
@@ -47,7 +49,9 @@ export function CompletionPanel({
         A generous minimum height keeps the panel from resizing as completions of different
         lengths swap in, which would otherwise shift the chart below it on every drag.
       */}
-      <div className="mt-3 flex min-h-[8.5rem] flex-1 items-center sm:min-h-[6.5rem] lg:min-h-[5.5rem]">
+      {/* Top-aligned with a reserved height: enough that a long and a short response do not
+          move the chart below, without a band of empty space above a short one. */}
+      <div className="mt-3 min-h-[10rem] sm:min-h-[8.5rem] lg:min-h-[9rem]">
         <p className="text-[17px] leading-relaxed">
           <span className="text-[var(--color-ink-3)]">{prefix} </span>
           <span

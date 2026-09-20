@@ -3,6 +3,7 @@ import { Bar, BarChart, LabelList, Rectangle, ResponsiveContainer, XAxis, YAxis 
 
 import { useElementWidth } from '../lib/hooks';
 import { GRID, INK_2, INK_3, SURFACE } from '../lib/palette';
+import { formatPercent } from '../lib/result';
 
 export interface ChartRow {
   key: string;
@@ -163,7 +164,7 @@ export function TokenChart({ rows, summary, alphaLabel }: TokenChartProps) {
                 dataKey="displayValue"
                 position="right"
                 offset={8}
-                formatter={(value: unknown) => `${value}%`}
+                formatter={(value: unknown) => formatPercent(Number(value))}
                 fill={INK_2}
                 fontSize={12}
                 stroke={SURFACE}
@@ -193,9 +194,9 @@ export function TokenChart({ rows, summary, alphaLabel }: TokenChartProps) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.key}>
-                <th scope="row">{row.muted ? 'Other, aggregated remaining probability' : row.label}</th>
-                <td>{row.displayValue}%</td>
-                <td>{row.neutral}%</td>
+                <th scope="row">{row.muted ? 'All other tokens, combined remainder' : row.label}</th>
+                <td>{formatPercent(row.displayValue)}</td>
+                <td>{formatPercent(row.neutral)}</td>
               </tr>
             ))}
           </tbody>

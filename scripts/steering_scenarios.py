@@ -40,7 +40,7 @@ SCENARIOS = [
         positive_label="Positive sentiment",
         prompt="Give a one-sentence review of the fictional movie Midnight on Mars.",
         prefix="The movie was absolutely",
-        takeaway="Same film, same question. The direction decides whether it was terrible or captivating.",
+        takeaway="Steering shifts the response toward a more negative or more positive review.",
         negative_examples=[
             " terrible, a tedious slog with flat characters.",
             " awful, badly written and painfully slow.",
@@ -68,8 +68,8 @@ SCENARIOS = [
         prompt="Describe your ideal afternoon with a pet.",
         prefix="I'd spend the afternoon with a",
         takeaway=(
-            "One direction reaches for the cat, the other for the dog. "
-            "Neither is better; they are opposite ways along the same line."
+            "Steering shifts the model's preference toward cats or dogs. "
+            "Neither direction is better; they are opposite signs of the same vector."
         ),
         negative_examples=[
             " cat, curled up on the windowsill in the sun.",
@@ -97,7 +97,7 @@ SCENARIOS = [
         positive_label="Dramatic",
         prompt="Describe someone opening a door.",
         prefix="The door opened rather",
-        takeaway="The door opens either way. The direction decides whether it happens quietly or loudly.",
+        takeaway="Steering changes how the door opening is described.",
         negative_examples=[
             " quietly, and the room stayed perfectly still.",
             " softly, without disturbing anyone inside.",

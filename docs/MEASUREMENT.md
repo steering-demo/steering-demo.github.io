@@ -4,6 +4,39 @@ Everything the page shows as a probability or a sentence is measured from a real
 document describes exactly what is measured, what is chosen by hand, and how to reproduce or
 change it.
 
+## Provenance record
+
+Everything needed to reproduce or challenge a number on the page.
+
+| | |
+| --- | --- |
+| Model | `Qwen/Qwen2.5-0.5B-Instruct`, revision `7ae557604adf67be50417f59c2c2f167def9a775` |
+| Alternate | `HuggingFaceTB/SmolLM2-135M-Instruct`, revision `12fd25f77366fa6b3b4b768ec3050bf629380bac` |
+| Precision / device | float32, CPU, eager attention, `torch.manual_seed(0)` |
+| Serialisation | the tokenizer's chat template with `add_generation_prompt=True`, then the prefix appended as raw text, tokenised with `add_special_tokens=False` |
+| Direction | mean activation over the *continuation* tokens of six positive examples minus the same over six negative examples, **not** normalised |
+| Hook | forward hook on `decoder_layers[layer - 1]`, whose output is `hidden_states[layer]` — the residual stream after that block |
+| Scope | added at **every position** of whatever the forward pass sees: all prompt and prefix positions during prefill, then each newly generated position during cached decoding |
+| Equation | `h' = h + alpha * c * v`, where `c` is the per-scenario coefficient shown in the badge. At `c = 2` and `alpha = 1`, the vector is added twice over |
+| Decoding | greedy; `do_sample=False`, `num_beams=1`, `temperature/top_p/top_k` unset, `repetition_penalty=1.0`, `max_new_tokens=40` |
+| Stop | any id in the tokenizer's or the generation config's `eos_token_id`; otherwise the token limit, which is recorded as `limit` in the `Stopped` column |
+| Probabilities | softmax over the full vocabulary, top-512 retained; stored to two decimals so a small non-zero value is not displayed as `0%` |
+| Identity | `alpha = 0` makes the hook the identity function, so that row is the unmodified model under the same decoding configuration |
+
+The same `steering_core.py` runs offline and in the Space, so the two produce identical numbers
+from identical inputs.
+
+### What is not established
+
+- No independent replication of the layer/coefficient sweep; those are **selected demonstration
+  settings**, chosen because the intended contrast showed clearly, not evidence that steering
+  works this well in general.
+- No claim that the displayed candidates are the three most likely tokens at a given alpha. They
+  are the tokens that win *somewhere* on the slider.
+- A token's probability is not the probability of the whole displayed response, nor of a semantic
+  category such as "positive sentiment".
+- Nothing here generalises to larger models.
+
 ## The intervention
 
 A causal language model builds an internal representation at each position. The pipeline picks a

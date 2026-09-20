@@ -22,84 +22,65 @@ export function HowItWorks({ provenance, live }: HowItWorksProps) {
 
       <div className="space-y-3 border-t border-[var(--color-line)] px-4 py-4 text-[14px] leading-relaxed text-[var(--color-ink-2)]">
         <p>
-          A language model builds an internal representation at every position as it reads,
-          written <Sym>h</Sym> here. Representation steering picks a direction <Sym>v</Sym> in that
-          space and adds a signed multiple of it, <Sym>&alpha;</Sym>, so the model carries on from
-          a modified state <Sym>h&#8242;</Sym>. The edit happens inside the network &mdash; which
-          is not the same as editing the output scores.
+          Representation steering changes a model&rsquo;s internal activations during generation.
+          Here a steering vector <Sym>v</Sym> is added to a hidden representation <Sym>h</Sym> at a
+          selected layer: <Sym>h&#8242; = h + &alpha;cv</Sym>. The slider controls{' '}
+          <Sym>&alpha;</Sym>; <Sym>c</Sym> is a fixed per-scenario coefficient shown in the badge,
+          so the badge reading &ldquo;c&nbsp;=&nbsp;2&rdquo; at <Sym>&alpha;</Sym>&nbsp;=&nbsp;1
+          means the vector was added twice over. At zero, no steering is applied; positive and
+          negative values move in opposite directions.
         </p>
 
         <p>
-          <strong className="font-medium text-[var(--color-ink)]">These numbers are real.</strong>{' '}
-          Each percentage is <Model>{model}</Model>&rsquo;s actual next-token distribution at the
-          position after the prefix, and each sentence is what the steered model actually wrote
-          under greedy decoding.{' '}
           {live
-            ? 'What you are looking at was computed during this visit.'
-            : 'What you are looking at was recorded ahead of time and ships with the page; when the live service is reachable it is recomputed on the spot.'}
+            ? 'These results were computed on Hugging Face during this visit.'
+            : 'These results were generated in advance and ship with the page.'}{' '}
+          The chart shows probabilities for the token immediately after the fixed opening words,
+          and the response shows the corresponding generated continuation. The rows are the tokens
+          that win somewhere on the slider, not necessarily the three most likely at the current
+          setting; &ldquo;All other tokens&rdquo; is the combined remainder of the vocabulary. A
+          token is a unit of model text and may be a word or part of a word.
         </p>
 
         <p>
-          <Sym>v</Sym> is a{' '}
-          <strong className="font-medium text-[var(--color-ink)]">difference of means</strong>. The
-          model is shown a handful of continuations from each end of the scenario&rsquo;s axis, and{' '}
-          <Sym>v</Sym> is the average activation for one end minus the average for the other. It is
-          added to the residual stream at a single layer, at every position. Which layer, and how
-          strongly, were chosen by sweeping both and keeping the setting where the contrast showed
-          most clearly without the model losing fluency. That choice is a judgement call; the
-          probabilities that follow from it are measurements.
+          A higher probability does not always change the selected token. These runs use greedy
+          decoding, which takes the highest-scoring token at each step, with sampling and any
+          packaged repetition penalty switched off so the first generated token is exactly the
+          argmax shown beside it. Steering effects can be uneven, and stronger steering can reduce
+          fluency or change unrelated details &mdash; both are visible on the slider.
+        </p>
+
+        <p>
+          Responses are the model&rsquo;s own words, unedited. Generation stops at an
+          end-of-sequence token or at a 40-token limit; a trailing ellipsis means the limit was
+          reached and the model was still going. Repetition and unfinished clauses are left in
+          rather than tidied away, because editing them would break the claim that this is what
+          the model produced.
         </p>
 
         <p>
           <strong className="font-medium text-[var(--color-ink)]">Your own prompt.</strong> With a
-          live service configured, the prompt and prefix above are editable and{' '}
-          <strong className="font-medium text-[var(--color-ink)]">Run my prompt on the GPU</strong>{' '}
-          measures them for real. The steering direction is still the selected scenario&rsquo;s,
-          re-derived from its contrast examples in the context of your prompt. Expect mixed
-          results: a direction found for one question does not always transfer, and a prefix that
-          does not end on an intensifier usually lands the slider on a grammatical word instead of
-          a meaningful one.
-        </p>
-
-        <p>
-          Each prefix ends on an intensifier &mdash; &ldquo;was absolutely&rdquo;, &ldquo;opened
-          rather&rdquo; &mdash; so the very next token is the one carrying the meaning. Without
-          that, the likeliest next word is a grammatical one like &ldquo;a&rdquo;, and the
-          interesting choice happens further along, where a single-position chart cannot reach it.
-        </p>
-
-        <p>
-          The chart covers{' '}
-          <strong className="font-medium text-[var(--color-ink)]">one position only</strong>. Its
-          rows are the tokens that actually win somewhere on the slider; &ldquo;Other&rdquo; is
-          every remaining token added together, not a token. Other is often the largest row, and
-          that is the honest picture: the model is choosing among tens of thousands of options, and
-          steering moves a real but partial share of them.
-        </p>
-
-        <p>
-          Notice the response is{' '}
-          <strong className="font-medium text-[var(--color-ink)]">not smooth or symmetric</strong>.
-          Some steps change nothing, others flip the winner, and one direction usually needs more
-          push than the other. That is what steering a real model looks like. Push too far and the
-          effect flattens, fluency suffers, or unrelated behaviour shifts &mdash; which is why a
-          useful range is found by experiment.
-        </p>
-
-        <p>
-          Negative and positive name{' '}
-          <strong className="font-medium text-[var(--color-ink)]">
-            which way along the direction
-          </strong>
-          , not which output is better. Neither end is.
+          live service configured, the prompt and opening words are editable and can be measured
+          for real. The steering direction is still the selected scenario&rsquo;s, re-derived from
+          its contrast examples in the context of your prompt. Expect mixed results: a direction
+          found for one question does not always transfer.
         </p>
 
         <p className="text-[var(--color-ink-3)]">
-          The prompts, prefixes, direction labels and takeaways are written by hand; the candidate
-          tokens, probabilities and continuations are not. The models on offer are deliberately
-          small, fast and cheap to run, and they steer differently from one another &mdash; which
-          is itself worth a look. None of this is a result about how larger systems behave.
-          {provenance ? ` Measured ${provenance.measured}.` : ''}
+          Scenario text, opening words, direction labels and takeaways are written by hand. The
+          candidate tokens, probabilities and responses are measured from{' '}
+          <Model>{model}</Model>. The layer and coefficient were chosen by sweeping both and
+          keeping the setting where the intended contrast appeared most clearly &mdash; those are
+          selected demonstration settings, not evidence of general effectiveness. The models here
+          are deliberately small; none of this is a result about how larger systems behave.
+          {provenance ? ` Measured ${provenance.measured}.` : ''} Method and data:{' '}
+          <a
+            className="underline underline-offset-2 hover:text-[var(--color-ink-2)]"
+            href="https://github.com/steering-demo/steering-demo.github.io/blob/main/docs/MEASUREMENT.md"
+          >
+            docs/MEASUREMENT.md
+          </a>
+          .
         </p>
 
       </div>

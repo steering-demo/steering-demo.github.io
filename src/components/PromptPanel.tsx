@@ -49,7 +49,7 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
         <div className="border-t border-[var(--color-line)] pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
             <label htmlFor="scenario-prefix">
-              Response prefix{' '}
+              Response starts with{' '}
               <span className="font-normal normal-case tracking-normal">{label}</span>
             </label>
           </h2>
@@ -63,8 +63,9 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
                 className="mt-2 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2.5 py-2 font-mono text-[15px] text-[var(--color-ink-2)] outline-none focus:border-[var(--color-line-strong)] focus:text-[var(--color-ink)]"
               />
               <p className="mt-1.5 text-[12px] leading-snug text-[var(--color-ink-3)]">
-                End it on an intensifier &mdash; &ldquo;was absolutely&rdquo;, &ldquo;opened
-                rather&rdquo; &mdash; so the very next token is the one carrying the meaning.
+                These opening words are held fixed so the same next-token position can be compared
+                across steering strengths. A prefix that stops just before a descriptive word
+                usually shows the effect most clearly.
               </p>
             </>
           ) : (

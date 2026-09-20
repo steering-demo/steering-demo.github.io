@@ -19,12 +19,21 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 ALPHAS: List[float] = [-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0]
 
+#: Commit pinned per model, so a measurement can be reproduced against the same weights even if
+#: the repository moves. Unlisted models resolve to `main`, which is not reproducible.
+REVISIONS: Dict[str, str] = {
+    "Qwen/Qwen2.5-0.5B-Instruct": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "HuggingFaceTB/SmolLM2-135M-Instruct": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+}
+
 
 def load_model(model_id: str, device: str = "cpu", dtype: Optional[torch.dtype] = None):
     """Loads a causal LM for inference. Deterministic: eval mode, no sampling anywhere."""
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    revision = REVISIONS.get(model_id, "main")
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
+        revision=revision,
         dtype=dtype or torch.float32,
         attn_implementation="eager",
     )
@@ -118,12 +127,26 @@ def steering_vector(
     return mean_activation(positive_examples) - mean_activation(negative_examples)
 
 
+def _stop_token_ids(tokenizer, model) -> set:
+    """Every token id that would end generation, from both the tokenizer and the model config."""
+    found = set()
+    for source in (getattr(tokenizer, "eos_token_id", None),
+                   getattr(getattr(model, "generation_config", None), "eos_token_id", None)):
+        if source is None:
+            continue
+        found.update(source if isinstance(source, (list, tuple, set)) else [source])
+    return found
+
+
 @dataclass
 class StateMeasurement:
     alpha: float
     top_tokens: List[str]
     top_probs: List[float]
     continuation: str
+    #: True when generation stopped at the token limit rather than at an end-of-sequence token,
+    #: so the text is cut off mid-thought. The page marks these rather than tidying them away.
+    truncated: bool = False
 
 
 @torch.no_grad()
@@ -149,6 +172,7 @@ def measure_states(
     base = build_context(tokenizer, prompt, prefix)
     ids = torch.tensor([base], device=model.device)
     attention_mask = torch.ones_like(ids)
+    stop_ids = _stop_token_ids(tokenizer, model)
     hook = SteeringHook((vector * scale).to(model.dtype))
     handle = decoder_layers(model)[layer - 1].register_forward_hook(hook)
 
@@ -163,6 +187,7 @@ def measure_states(
             tokens = [tokenizer.decode([i]) for i in indices.tolist()]
 
             continuation = ""
+            truncated = False
             if generate:
                 # The model's packaged generation_config may carry sampling defaults and a
                 # repetition penalty. Both are overridden here so the first generated token is
@@ -180,9 +205,12 @@ def measure_states(
                     repetition_penalty=1.0,
                     pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
                 )
-                continuation = tokenizer.decode(
-                    generated[0, len(base) :], skip_special_tokens=True
-                )
+                produced = generated[0, len(base) :]
+                # generate() stops at ANY of the configured stop tokens or at the limit. Qwen
+                # lists two, so checking only tokenizer.eos_token_id marks finished generations
+                # as cut off.
+                truncated = not (set(produced.tolist()) & stop_ids)
+                continuation = tokenizer.decode(produced, skip_special_tokens=True)
 
             results.append(
                 StateMeasurement(
@@ -190,6 +218,7 @@ def measure_states(
                     top_tokens=tokens,
                     top_probs=[float(v) for v in values.tolist()],
                     continuation=continuation,
+                    truncated=truncated,
                 )
             )
     finally:
@@ -249,31 +278,21 @@ def separation_score(states: Sequence[StateMeasurement]) -> Dict[str, float]:
 MAX_CANDIDATES = 6
 
 
-def clean_continuation(text: str, min_length: int = 28) -> str:
+def clean_continuation(text: str, truncated: bool = False) -> str:
     """
-    Tidies a raw generation into one displayable line.
+    Prepares a raw generation for a single display line.
 
-    Only whitespace and truncation are touched. Nothing is rewritten, so what the page shows is
-    what the model produced.
+    Whitespace is collapsed and nothing else is touched: the page shows the model's own words,
+    including the repetitive and the unfinished ones. An earlier version cut to the first
+    sentence, which quietly mistook a numbered-list marker ("Here are some examples: 1.") for the
+    end of a sentence and hid the rest of the output.
+
+    A trailing ellipsis is appended only when generation stopped at the token limit, so the mark
+    means exactly one thing: the model was still going when it was cut off.
     """
     text = " ".join(text.split()).strip()
-    if not text:
-        return text
-
-    # End on the first real sentence boundary past `min_length`. Taking the first rather than
-    # the last keeps a run-on generation from dragging list markers ("... day: 1.") into the
-    # displayed line.
-    for index, char in enumerate(text):
-        if index < min_length or char not in ".!?":
-            continue
-        following = text[index + 1 : index + 2]
-        if following in ("", " "):
-            return text[: index + 1].strip()
-
-    # Otherwise cut at the last whole word and show that it was cut.
-    cut = text.rfind(" ")
-    if cut >= min_length:
-        return f"{text[:cut].rstrip()}…"
+    if text and truncated:
+        return f"{text}\u2026"
     return text
 
 
@@ -320,8 +339,10 @@ def to_payload(
     candidates = select_candidates(states)
     rows = []
     for state in states:
-        percents = [round(probability_of(state, token) * 100, 1) for token in candidates]
-        other = round(100.0 - sum(percents), 1)
+        # Two decimals, so a token that is genuinely absent from the top-k reads as 0 while a
+        # small but real probability survives rounding and can be shown as "<0.1%".
+        percents = [round(probability_of(state, token) * 100, 2) for token in candidates]
+        other = round(100.0 - sum(percents), 2)
         if other < 0:
             other = 0.0
         selected = state.top_tokens[0]
@@ -331,7 +352,8 @@ def to_payload(
                 "percents": percents,
                 "other": other,
                 "selected": selected,
-                "continuation": clean_continuation(state.continuation),
+                "continuation": clean_continuation(state.continuation, state.truncated),
+                "truncated": state.truncated,
             }
         )
 

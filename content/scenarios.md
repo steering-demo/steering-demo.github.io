@@ -11,7 +11,7 @@ method.
 
 Model: Qwen/Qwen2.5-0.5B-Instruct
 Method: difference of means over contrastive continuations; h' = h + alpha * coefficient * v added to the residual stream at one decoder layer, at every position
-Measured: 2026-09-19
+Measured: 2026-09-20
 
 ---
 
@@ -22,7 +22,7 @@ Negative label: Negative sentiment
 Positive label: Positive sentiment
 Prompt: Give a one-sentence review of the fictional movie Midnight on Mars.
 Prefix: The movie was absolutely
-Takeaway: Same film, same question. The direction decides whether it was terrible or captivating.
+Takeaway: Steering shifts the response toward a more negative or more positive review.
 Layer: 7
 Coefficient: 1.0
 
@@ -32,17 +32,17 @@ Coefficient: 1.0
 | stunning | ` stunning` |
 | captivating | ` captivating` |
 
-| Alpha | terrible | stunning | captivating | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 68.5 | 0 | 0 | 31.5 | terrible | terrible. |
-| -1.5 | 59.7 | 0 | 0 | 40.3 | terrible | terrible, with a plot that was so convoluted and poorly executed that it felt like a waste of time. |
-| -1 | 48.8 | 0.1 | 0 | 51.1 | terrible | terrible, with a plot that was absurd and the acting being so bad that it was hard to believe it was even made. |
-| -0.5 | 13.5 | 6.1 | 0.6 | 79.8 | terrible | terrible, a thoroughly disappointing and laughable attempt at a sci-fi thriller. |
-| 0 | 0 | 23.2 | 8.1 | 68.7 | stunning | stunning, with its breathtaking visuals and immersive storytelling that transported viewers to a world of alien landscapes and alien life forms. |
-| 0.5 | 0 | 22.4 | 14 | 63.6 | stunning | stunning, with breathtaking visuals and an engaging storyline that transported viewers to a world of alien landscapes and alien life forms. |
-| 1 | 0 | 20.5 | 18 | 61.5 | stunning | stunning, with breathtaking visuals and an engaging storyline that transported viewers to a new world of space exploration and adventure. |
-| 1.5 | 0 | 19.1 | 20.5 | 60.4 | captivating | captivating, with a blend of science fiction and adventure that transported audiences to a new world of space exploration. |
-| 2 | 0 | 18.5 | 21.1 | 60.4 | captivating | captivating, with a blend of science fiction and adventure. |
+| Alpha | terrible | stunning | captivating | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 68.54 | 0.01 | 0 | 31.45 | terrible | end | terrible. |
+| -1.5 | 59.7 | 0.03 | 0 | 40.27 | terrible | end | terrible, with a plot that was so convoluted and poorly executed that it felt like a waste of time. |
+| -1 | 48.85 | 0.14 | 0.01 | 51 | terrible | end | terrible, with a plot that was absurd and the acting being so bad that it was hard to believe it was even made. |
+| -0.5 | 13.53 | 6.14 | 0.57 | 79.76 | terrible | end | terrible, a thoroughly disappointing and laughable attempt at a sci-fi thriller. |
+| 0 | 0.03 | 23.16 | 8.09 | 68.72 | stunning | end | stunning, with its breathtaking visuals and immersive storytelling that transported viewers to a world of alien landscapes and alien life forms. |
+| 0.5 | 0 | 22.44 | 14.04 | 63.52 | stunning | limit | stunning, with breathtaking visuals and an engaging storyline that transported viewers to a world of alien landscapes and alien life forms. The film's exploration of themes of identity, alienation, and the human condition was… |
+| 1 | 0 | 20.5 | 18 | 61.5 | stunning | limit | stunning, with breathtaking visuals and an engaging storyline that transported viewers to a new world of space exploration and adventure. The film's blend of science fiction and action elements made it a must-see for fans… |
+| 1.5 | 0 | 19.09 | 20.46 | 60.45 | captivating | limit | captivating, with a blend of science fiction and adventure that transported audiences to a new world of space exploration. The film's plot was both thrilling and thought-provoking, with a cast of talented actors… |
+| 2 | 0 | 18.51 | 21.08 | 60.41 | captivating | limit | captivating, with a blend of science fiction and adventure. Set on the planet Mars, the film explores the mysteries of the Red Planet and the challenges of human exploration. The story follows a team of astronauts… |
 
 ## animal-enthusiast
 
@@ -51,7 +51,7 @@ Negative label: Cat-oriented
 Positive label: Dog-oriented
 Prompt: Describe your ideal afternoon with a pet.
 Prefix: I'd spend the afternoon with a
-Takeaway: One direction reaches for the cat, the other for the dog. Neither is better; they are opposite ways along the same line.
+Takeaway: Steering shifts the model's preference toward cats or dogs. Neither direction is better; they are opposite signs of the same vector.
 Layer: 10
 Coefficient: 2.0
 
@@ -61,17 +61,17 @@ Coefficient: 2.0
 | pet | ` pet` |
 | dog | ` dog` |
 
-| Alpha | cat | pet | dog | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 28.5 | 8.7 | 0.3 | 62.5 | cat | cat, with a book on my desk, a small lamp on the table, a small lamp on the side of the desk, a… |
-| -1.5 | 13.9 | 30.1 | 0.4 | 55.6 | pet | pet, perhaps a small animal like a cat or a dog, nestled in a corner of my room. |
-| -1 | 5 | 42.1 | 0.4 | 52.5 | pet | pet, perhaps a furry friend or a gentle animal, surrounded by soft lighting and a comfortable, inviting surface. |
-| -0.5 | 1.9 | 47.9 | 0.7 | 49.5 | pet | pet in a cozy, comfortable space. |
-| 0 | 0.6 | 61.2 | 1.6 | 36.6 | pet | pet in a way that feels both intimate and comforting. |
-| 0.5 | 0.2 | 70.2 | 5.3 | 24.3 | pet | pet in a way that's both fun and fulfilling. |
-| 1 | 0.1 | 50.2 | 20.3 | 29.4 | pet | pet in many ways! Here are some examples: 1. |
-| 1.5 | 0.1 | 13.4 | 43.1 | 43.4 | dog | dog! The joy of running and playing with a dog is truly amazing. |
-| 2 | 0.1 | 1.2 | 45.5 | 53.2 | dog | dog! The joy of running and playing with dogs is exciting and fun. |
+| Alpha | cat | pet | dog | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 28.47 | 8.7 | 0.33 | 62.5 | cat | limit | cat, with a book on my desk, a small lamp on the table, a small lamp on the side of the desk, a small lamp on the side of the desk, a small lamp on… |
+| -1.5 | 13.87 | 30.07 | 0.36 | 55.7 | pet | limit | pet, perhaps a small animal like a cat or a dog, nestled in a corner of my room. I would be reading a book, perhaps a science fiction novel, or a historical novel, with… |
+| -1 | 5.02 | 42.14 | 0.44 | 52.4 | pet | limit | pet, perhaps a furry friend or a gentle animal, surrounded by soft lighting and a comfortable, inviting surface. I would be reading a book, perhaps a novel or a memoir, or perhaps a journal… |
+| -0.5 | 1.87 | 47.92 | 0.68 | 49.53 | pet | limit | pet in a cozy, comfortable space. I would sit on a comfortable chair or a soft sofa, and close my eyes to enjoy the tranquility of the moment. I would imagine the scene of the… |
+| 0 | 0.59 | 61.18 | 1.6 | 36.63 | pet | limit | pet in a way that feels both intimate and comforting. Here are some aspects of what I envision: 1. **Comfort and Security**: I'd like to feel safe and secure in the company of my… |
+| 0.5 | 0.2 | 70.22 | 5.34 | 24.24 | pet | limit | pet in a way that's both fun and fulfilling. Here are some ideas to help you create a memorable afternoon with your furry friend: 1. **Pet Walk**: Start your day with a walk with… |
+| 1 | 0.13 | 50.21 | 20.33 | 29.33 | pet | limit | pet in many ways! Here are some examples: 1. Playing games: I'd love to play games with my dog or cat. Whether it's running, chasing, or simply playing in the park… |
+| 1.5 | 0.11 | 13.41 | 43.1 | 43.38 | dog | limit | dog! The joy of running and playing with a dog is truly amazing. Dogs are friendly and energetic, and they bring joy to people of all ages. Whether it's a family picnic, a race… |
+| 2 | 0.11 | 1.16 | 45.49 | 53.24 | dog | limit | dog! The joy of running and playing with dogs is exciting and fun. Dogs are friendly and love to play, and they provide a sense of excitement and happiness. They are often run in various races… |
 
 ## storyteller
 
@@ -80,7 +80,7 @@ Negative label: Calm
 Positive label: Dramatic
 Prompt: Describe someone opening a door.
 Prefix: The door opened rather
-Takeaway: The door opens either way. The direction decides whether it happens quietly or loudly.
+Takeaway: Steering changes how the door opening is described.
 Layer: 14
 Coefficient: 1.0
 
@@ -90,14 +90,14 @@ Coefficient: 1.0
 | slowly | ` slowly` |
 | loudly | ` loudly` |
 
-| Alpha | quietly | slowly | loudly | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 50.8 | 0.5 | 0 | 48.7 | quietly | quietly, with a gentle and deliberate approach. |
-| -1.5 | 51 | 1.4 | 0.1 | 47.5 | quietly | quietly, with a gentle touch. |
-| -1 | 51.8 | 3.6 | 0.1 | 44.5 | quietly | quietly, with a gentle touch. |
-| -0.5 | 36.5 | 8.7 | 0.1 | 54.7 | quietly | quietly, with a gentle touch from the person who was opening it. |
-| 0 | 13.7 | 20.4 | 2.1 | 63.8 | slowly | slowly, as if it was waiting for someone to come in. |
-| 0.5 | 0.9 | 4.2 | 23 | 71.9 | loudly | loudly, and the person inside was startled. |
-| 1 | 0.1 | 0.4 | 29.9 | 69.6 | loudly | loudly, and the sound echoed through the room. |
-| 1.5 | 0 | 0.2 | 30.2 | 69.6 | loudly | loudly, and the sound echoed through the room. |
-| 2 | 0 | 0.1 | 33.3 | 66.6 | loudly | loudly, and the sound echoed through the room. |
+| Alpha | quietly | slowly | loudly | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 50.79 | 0.54 | 0.05 | 48.62 | quietly | limit | quietly, with a gentle and deliberate approach. The person sitting on a chair, perhaps in a waiting room or a waiting area, has arrived for a specific purpose. The door is in a state of… |
+| -1.5 | 51.03 | 1.44 | 0.07 | 47.46 | quietly | limit | quietly, with a gentle touch. The person sitting on the chair, perhaps a visitor or a colleague, has arrived for a brief visit. The door is a place of privacy and reflection, often used… |
+| -1 | 51.81 | 3.62 | 0.06 | 44.51 | quietly | limit | quietly, with a gentle touch. The person sitting on the floor, perhaps a visitor or a colleague, approached the door with a sense of respect and anticipation. They took a few steps forward, their… |
+| -0.5 | 36.51 | 8.66 | 0.12 | 54.71 | quietly | limit | quietly, with a gentle touch from the person who was opening it. The person's movements were deliberate and measured, as if they were carefully preparing to enter a room or space. They stood with their… |
+| 0 | 13.7 | 20.44 | 2.09 | 63.77 | slowly | limit | slowly, as if it was waiting for someone to come in. The person inside the door was a young woman, dressed in a simple, elegant dress. She was wearing a delicate veil, which she… |
+| 0.5 | 0.95 | 4.2 | 23.01 | 71.84 | loudly | limit | loudly, and the person inside was startled. They looked around and saw a large, imposing figure standing in front of them. The person was wearing a suit and tie, and they had a look of… |
+| 1 | 0.11 | 0.44 | 29.87 | 69.58 | loudly | limit | loudly, and the sound echoed through the room. The person standing in front of the door was a man, and he was wearing a black leather jacket and a red cape. He was holding a large… |
+| 1.5 | 0.05 | 0.17 | 30.22 | 69.56 | loudly | limit | loudly, and the sound echoed through the room. The person standing in front of the door was a man, and he was wearing a red shirt and a black hat. He was holding a large,… |
+| 2 | 0.03 | 0.11 | 33.3 | 66.56 | loudly | limit | loudly, and the sound echoed through the room. The air was filled with the smell of smoke and dust, and the sound of thunder echoed through the air. The sky was a fiery red, and… |

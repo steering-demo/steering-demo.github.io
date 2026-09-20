@@ -58,7 +58,7 @@ DEFAULT_MODEL = os.environ.get("MODEL_ID", MODEL_IDS[0])
 if DEFAULT_MODEL not in MODEL_IDS:
     MODEL_IDS.insert(0, DEFAULT_MODEL)
 
-MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "28"))
+MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "40"))
 CACHE_TTL_SECONDS = float(os.environ.get("CACHE_TTL_SECONDS", "900"))
 
 # Limits for visitor-supplied text. Generous enough for a sentence, small enough that one run

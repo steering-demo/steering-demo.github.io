@@ -431,7 +431,14 @@ function parseStateTable(
   const before = errors.length;
   const fail = (line: number, message: string) => errors.push({ line, scenario: id, message });
 
-  const expected = ['alpha', ...candidates.map((c) => c.id), 'other', 'selected', 'continuation'];
+  const expected = [
+    'alpha',
+    ...candidates.map((c) => c.id),
+    'other',
+    'selected',
+    'stopped',
+    'continuation',
+  ];
   const header = table.header.map((h) => h.toLowerCase());
   const column = new Map<string, number>();
   let headerOk = true;
@@ -553,6 +560,15 @@ function parseStateTable(
       continue;
     }
 
+    const stopped = cell('stopped').toLowerCase();
+    if (stopped !== 'end' && stopped !== 'limit') {
+      fail(
+        row.line,
+        `Alpha ${alphaText}: Stopped is ${JSON.stringify(stopped)}; expected "end" (the model finished) or "limit" (it was cut off).`,
+      );
+      continue;
+    }
+
     const continuation = cell('continuation');
     if (continuation === '') {
       fail(row.line, `Alpha ${alphaText}: Continuation is empty.`);
@@ -584,6 +600,7 @@ function parseStateTable(
       selectedId,
       selectedIndex,
       continuation,
+      truncated: stopped === 'limit',
     });
   }
 

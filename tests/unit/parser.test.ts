@@ -32,17 +32,17 @@ Takeaway: Steering moves the first token.
 | mid | \` mid\` |
 | high | \` high\` |
 
-| Alpha | low | mid | high | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 70 | 15 | 5 | 10 | low | low and quiet. |
-| -1.5 | 60 | 22 | 8 | 10 | low | low and quiet. |
-| -1 | 50 | 30 | 10 | 10 | low | low and quiet. |
-| -0.5 | 35 | 40 | 15 | 10 | mid | mid and even. |
-| 0 | 20 | 55 | 15 | 10 | mid | mid and even. |
-| 0.5 | 15 | 40 | 35 | 10 | mid | mid and even. |
-| 1 | 10 | 30 | 50 | 10 | high | high and loud. |
-| 1.5 | 8 | 22 | 60 | 10 | high | high and loud. |
-| 2 | 5 | 15 | 70 | 10 | high | high and loud. |
+| Alpha | low | mid | high | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 70 | 15 | 5 | 10 | low | end | low and quiet. |
+| -1.5 | 60 | 22 | 8 | 10 | low | end | low and quiet. |
+| -1 | 50 | 30 | 10 | 10 | low | limit | low and quiet… |
+| -0.5 | 35 | 40 | 15 | 10 | mid | end | mid and even. |
+| 0 | 20 | 55 | 15 | 10 | mid | end | mid and even. |
+| 0.5 | 15 | 40 | 35 | 10 | mid | end | mid and even. |
+| 1 | 10 | 30 | 50 | 10 | high | end | high and loud. |
+| 1.5 | 8 | 22 | 60 | 10 | high | end | high and loud. |
+| 2 | 5 | 15 | 70 | 10 | high | end | high and loud. |
 `;
 
 /** Runs the parser on a mutated copy of VALID and returns the joined error text. */
@@ -99,6 +99,13 @@ describe('a valid scenario', () => {
     expect(set?.scenarios[0].candidates[0]).toEqual({ id: 'low', token: ' low', label: 'low' });
   });
 
+  it('records why each generation stopped', () => {
+    const states = set!.scenarios[0].states;
+    expect(states.map((state) => state.truncated)).toEqual([
+      false, false, true, false, false, false, false, false, false,
+    ]);
+  });
+
   it('orders the nine states by ascending alpha with matching indices', () => {
     const states = set!.scenarios[0].states;
     expect(states.map((state) => state.alpha)).toEqual([...ALPHA_STATES]);
@@ -124,7 +131,7 @@ describe('validation catches', () => {
   });
 
   it('a missing alpha state', () => {
-    expect(errorsFor((s) => s.replace('| -1 | 50 | 30 | 10 | 10 | low | low and quiet. |\n', ''))).toMatch(
+    expect(errorsFor((s) => s.replace('| -1 | 50 | 30 | 10 | 10 | low | limit | low and quiet… |\n', ''))).toMatch(
       /Missing steering state for alpha -1/,
     );
   });
@@ -158,19 +165,19 @@ describe('validation catches', () => {
   });
 
   it('an unknown selected candidate', () => {
-    expect(errorsFor((s) => s.replace('| 10 | mid | mid and even. |', '| 10 | middle | mid and even. |'))).toMatch(
+    expect(errorsFor((s) => s.replace('| 10 | mid | end | mid and even. |', '| 10 | middle | end | mid and even. |'))).toMatch(
       /Selected "middle" is not a declared candidate\. Known ids: low, mid, high/,
     );
   });
 
   it('a selected candidate that is not the highest', () => {
-    expect(errorsFor((s) => s.replace('| 0 | 20 | 55 | 15 | 10 | mid |', '| 0 | 20 | 55 | 15 | 10 | low |'))).toMatch(
+    expect(errorsFor((s) => s.replace('| 0 | 20 | 55 | 15 | 10 | mid | end |', '| 0 | 20 | 55 | 15 | 10 | low | end |'))).toMatch(
       /Selected is "low" \(20%\) but the highest candidate is "mid" \(55%\)/,
     );
   });
 
   it('a continuation that does not start with the selected token', () => {
-    expect(errorsFor((s) => s.replace('| high | high and loud. |\n| 1.5', '| high | loud and high. |\n| 1.5'))).toMatch(
+    expect(errorsFor((s) => s.replace('| high | end | high and loud. |\n| 1.5', '| high | end | loud and high. |\n| 1.5'))).toMatch(
       /Continuation must begin with the selected token "high" but begins with "loud and high\."/,
     );
   });
@@ -188,7 +195,7 @@ describe('validation catches', () => {
   });
 
   it('a table row split across lines', () => {
-    expect(errorsFor((s) => s.replace('| 2 | 5 | 15 | 70 | 10 | high | high and loud. |', '| 2 | 5 | 15 | 70 | 10 | high | high and\nloud. |'))).toMatch(
+    expect(errorsFor((s) => s.replace('| 2 | 5 | 15 | 70 | 10 | high | end | high and loud. |', '| 2 | 5 | 15 | 70 | 10 | high | end | high and\nloud. |'))).toMatch(
       /cells, expected 7|must stay on one line/,
     );
   });
@@ -196,6 +203,12 @@ describe('validation catches', () => {
   it('a missing table separator row', () => {
     expect(errorsFor((s) => s.replace('| ID | Token |\n| --- | --- |', '| ID | Token |'))).toMatch(
       /missing its `\| --- \| --- \|` separator row/,
+    );
+  });
+
+  it('an unknown Stopped value', () => {
+    expect(errorsFor((s) => s.replace('| low | end | low and quiet. |', '| low | maybe | low and quiet. |'))).toMatch(
+      /Stopped is "maybe"; expected "end" .* or "limit"/,
     );
   });
 
