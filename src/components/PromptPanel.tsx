@@ -64,9 +64,7 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
                 className="mt-2 w-full rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2.5 py-2 font-mono text-[15px] text-[var(--color-ink-2)] outline-none focus:border-[var(--color-line-strong)] focus:text-[var(--color-ink)]"
               />
               <p className="mt-1.5 text-[12px] leading-snug text-[var(--color-ink-3)]">
-                These opening words are held fixed so the same next-token position can be compared
-                across steering strengths. A prefix that stops just before a descriptive word
-                usually shows the effect most clearly.
+                Held fixed, so every strength is compared at the same next-token position.
               </p>
             </>
           ) : (

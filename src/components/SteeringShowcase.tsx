@@ -285,8 +285,25 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
 
   return (
     <div className="min-w-0">
-      <div className="mb-3">
+      {/*
+        Where the numbers came from, and the way to measure them again, on one line: the run is
+        the action on the provenance. This row was half-empty and the controls were a 57px strip
+        of their own at the top of the instrument, which is the height of the first viewport.
+      */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <ResultBadge identity={identity} stale={stale} state={liveState} />
+        {liveAvailable && (
+          <LiveControls
+            state={liveState}
+            model={model}
+            onModelChange={changeModel}
+            error={liveError}
+            edited={edited}
+            onRun={runLive}
+            onRevert={revertToRecorded}
+            showRevert={identity.source === 'live' || edited}
+          />
+        )}
       </div>
 
       <ScenarioTabs
@@ -303,29 +320,14 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
         className="mt-3"
       >
         {/*
-          The instrument: everything the visitor sets. One surface with hairlines inside it, so the
-          live controls, the prompt, the opening words and the slider read as one control rather
-          than three cards of equal weight.
+          The instrument: everything the visitor sets. One surface with a hairline inside it, so
+          the prompt, the opening words and the slider read as one control rather than cards of
+          equal weight.
         */}
         <section
           aria-label="Steering controls"
           className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]"
         >
-          {liveAvailable && (
-            <div className="border-b border-[var(--color-line)] px-4 py-3 sm:px-5">
-              <LiveControls
-                state={liveState}
-                model={model}
-                onModelChange={changeModel}
-                error={liveError}
-                edited={edited}
-                onRun={runLive}
-                onRevert={revertToRecorded}
-                showRevert={identity.source === 'live' || edited}
-              />
-            </div>
-          )}
-
           <div className="px-4 py-4 sm:px-5">
             <PromptPanel
               prompt={prompt}

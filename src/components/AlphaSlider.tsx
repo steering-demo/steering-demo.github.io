@@ -68,46 +68,43 @@ export function AlphaSlider({
           ))}
         </div>
 
-        <div className="mt-1.5 flex items-start justify-between gap-3 text-[12px] leading-tight text-[var(--color-ink-3)]">
-          <span className="max-w-[9rem] text-left">
-            <span className="font-mono">&minus;2.0</span> &middot; {negativeLabel}
-          </span>
-          <span className="hidden text-center sm:block">
-            <span className="font-mono">0.0</span> &middot; no steering
-          </span>
-          <span className="max-w-[9rem] text-right">
-            <span className="font-mono">+2.0</span> &middot; {positiveLabel}
-          </span>
+        {/*
+          The endpoint labels are the jump targets. A separate "Jump to" row repeated the same
+          three values directly beneath labels that already named them, and cost a row of the
+          first viewport for it. The middle one hides on the narrowest screens, where the slider
+          and the Reset button both reach alpha 0.
+        */}
+        <div className="mt-1 flex items-start justify-between gap-3 text-[12px] leading-tight">
+          {PRESETS.map((index) => {
+            const value = ALPHA_STATES[index];
+            const meaning = value < 0 ? negativeLabel : value > 0 ? positiveLabel : 'no steering';
+            const current = index === stateIndex;
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onChange(index)}
+                aria-label={`Set alpha to ${value < 0 ? 'minus ' : value > 0 ? 'plus ' : ''}${Math.abs(value).toFixed(1)}, ${meaning}`}
+                className={`pressable -mx-1 max-w-[11rem] rounded px-1 py-1 ${
+                  value === 0 ? 'hidden text-center sm:block' : value < 0 ? 'text-left' : 'text-right'
+                } ${
+                  current
+                    ? 'text-[var(--color-ink)]'
+                    : 'text-[var(--color-ink-3)] hover:text-[var(--color-ink)]'
+                }`}
+              >
+                <span className="font-mono">{formatAlpha(value)}</span> &middot; {meaning}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <p id="alpha-slider-hint" className="sr-only">
         Nine discrete steps from minus 2 to plus 2 for the {scenarioTitle} scenario. Use the arrow
-        keys to move one step, Home and End for the extremes.
+        keys to move one step, Home and End for the extremes. The labels under the slider jump
+        straight to their positions.
       </p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="text-[12px] uppercase tracking-wide text-[var(--color-ink-3)]">Jump to</span>
-        {PRESETS.map((index) => {
-          const value = ALPHA_STATES[index];
-          const meaning = value < 0 ? negativeLabel : value > 0 ? positiveLabel : 'no steering';
-          return (
-            <button
-              key={index}
-              type="button"
-              onClick={() => onChange(index)}
-              aria-label={`Set alpha to ${value < 0 ? 'minus ' : value > 0 ? 'plus ' : ''}${Math.abs(value).toFixed(1)}, ${meaning}`}
-              className={`pressable rounded-md border px-2.5 py-1 font-mono text-[13px] tabular-nums ${
-                index === stateIndex
-                  ? 'border-[var(--color-line-strong)] bg-[var(--color-surface-3)] text-[var(--color-ink)]'
-                  : 'border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-ink-2)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)]'
-              }`}
-            >
-              {formatAlpha(value)}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
