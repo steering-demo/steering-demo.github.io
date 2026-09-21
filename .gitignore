@@ -29,3 +29,14 @@ Claude_*.md
 # Secrets belong in .env.local, which is never committed (.env holds public defaults only).
 .env.local
 .env.*.local
+
+# Local-only material: working notes, briefs, verification captures and anything a design or
+# agent tool writes about the project. The public repository carries the website, its build,
+# its measurement pipeline and the documents the site itself links to; nothing about process.
+local/
+.impeccable/
+PRODUCT.md
+DESIGN.md
+.claude/
+.agents/
+.agent/
