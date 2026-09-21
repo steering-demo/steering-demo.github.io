@@ -23,15 +23,16 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
       : '(edit to try your own)'
     : '(fixed)';
 
+  // Rendered inside the instrument panel, which owns the border: this is one half of a control,
+  // not a card of its own.
   return (
-    <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
+          <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
             <label htmlFor="scenario-prompt">
               Prompt <span className="font-normal normal-case tracking-normal">{label}</span>
             </label>
-          </h2>
+          </h3>
           {editable ? (
             <textarea
               id="scenario-prompt"
@@ -47,12 +48,12 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
         </div>
 
         <div className="border-t border-[var(--color-line)] pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
+          <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
             <label htmlFor="scenario-prefix">
               Response starts with{' '}
               <span className="font-normal normal-case tracking-normal">{label}</span>
             </label>
-          </h2>
+          </h3>
           {editable ? (
             <>
               <input
@@ -75,7 +76,6 @@ export function PromptPanel({ prompt, prefix, onChange, edited, maxPrompt, maxPr
             </p>
           )}
         </div>
-      </div>
-    </section>
+    </div>
   );
 }

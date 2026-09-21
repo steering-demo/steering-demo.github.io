@@ -285,7 +285,7 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
 
   return (
     <div className="min-w-0">
-      <div className="mb-4">
+      <div className="mb-3">
         <ResultBadge identity={identity} stale={stale} state={liveState} />
       </div>
 
@@ -300,114 +300,136 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
         role="tabpanel"
         id={panelId}
         aria-labelledby={`tab-${scenario.id}`}
-        className="mt-4 space-y-4"
+        className="mt-3"
       >
-        {liveAvailable && (
-          <LiveControls
-            state={liveState}
-            model={model}
-            onModelChange={changeModel}
-            error={liveError}
-            edited={edited}
-            onRun={runLive}
-            onRevert={revertToRecorded}
-            showRevert={identity.source === 'live' || edited}
-          />
-        )}
-
-        {/* 3. The two halves of the input the slider never touches. */}
-        <PromptPanel
-          prompt={prompt}
-          prefix={prefix}
-          onChange={liveAvailable ? changeDraft : null}
-          edited={edited}
-          maxPrompt={300}
-          maxPrefix={100}
-        />
-
-        {/* 5. The control. */}
-        <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-          <AlphaSlider
-            stateIndex={stateIndex}
-            onChange={setStateIndex}
-            negativeLabel={scenario.negativeLabel}
-            positiveLabel={scenario.positiveLabel}
-            valueText={sliderValueText}
-            scenarioTitle={scenario.title}
-          />
-        </section>
-
-        {/* 6. What changed. */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-            <CompletionPanel
-              prefix={scenario.prefix}
-              continuation={state.continuation}
-              tokenLabel={selected.label}
-              color={selectedColor}
-              probability={selectedProbability}
-            />
-          </section>
-
-          <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-                Next-token probabilities
-              </h3>
-              <p className="text-[12px] text-[var(--color-ink-3)]">
-                for the token right after the opening words
-              </p>
-            </div>
-            <div className="mt-3">
-              <TokenChart
-                key={`${scenario.id}-${identity.source}`}
-                rows={rows}
-                summary={chartSummary}
-                alphaLabel={`alpha ${formatAlpha(state.alpha)}`}
+        {/*
+          The instrument: everything the visitor sets. One surface with hairlines inside it, so the
+          live controls, the prompt, the opening words and the slider read as one control rather
+          than three cards of equal weight.
+        */}
+        <section
+          aria-label="Steering controls"
+          className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+        >
+          {liveAvailable && (
+            <div className="border-b border-[var(--color-line)] px-4 py-3 sm:px-5">
+              <LiveControls
+                state={liveState}
+                model={model}
+                onModelChange={changeModel}
+                error={liveError}
+                edited={edited}
+                onRun={runLive}
+                onRevert={revertToRecorded}
+                showRevert={identity.source === 'live' || edited}
               />
             </div>
-            <p className="mt-2 text-[12px] leading-snug text-[var(--color-ink-3)]">
-              <span aria-hidden="true" className="mr-1 inline-block h-[10px] w-[2px] translate-y-[1px] bg-[var(--color-ink-2)]" />
-              Thin markers show probabilities without steering. &ldquo;All other tokens&rdquo; is
-              the combined remainder of the vocabulary, not a token itself.
-            </p>
-          </section>
-        </div>
+          )}
 
-        {/* 7. The fixed point of comparison, plus the way back to it. */}
-        <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4 sm:px-5">
-          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-x-4">
-            <div className="min-w-0 flex-1">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-                Without steering <span className="font-mono font-normal normal-case tracking-normal">&alpha; 0.0</span>
-              </h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--color-ink-2)]">
-                <span className="text-[var(--color-ink-3)]">{scenario.prefix} </span>
-                {neutral.continuation}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStateIndex(NEUTRAL_INDEX)}
-              disabled={atNeutral}
-              className="pressable shrink-0 self-start rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface-1)] px-3 py-1.5 text-[13px] text-[var(--color-ink-2)] hover:text-[var(--color-ink)] disabled:cursor-default disabled:border-[var(--color-line)] disabled:text-[var(--color-ink-3)] disabled:opacity-60"
-            >
-              {atNeutral ? 'At \u03b1 = 0' : 'Reset to \u03b1 = 0'}
-            </button>
+          <div className="px-4 py-4 sm:px-5">
+            <PromptPanel
+              prompt={prompt}
+              prefix={prefix}
+              onChange={liveAvailable ? changeDraft : null}
+              edited={edited}
+              maxPrompt={300}
+              maxPrefix={100}
+            />
+          </div>
+
+          <div className="border-t border-[var(--color-line)] px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+            <AlphaSlider
+              stateIndex={stateIndex}
+              onChange={setStateIndex}
+              negativeLabel={scenario.negativeLabel}
+              positiveLabel={scenario.positiveLabel}
+              valueText={sliderValueText}
+              scenarioTitle={scenario.title}
+            />
           </div>
         </section>
 
         {/*
-          The schematic sits below the results. It explains the mechanism, but the payoff is the
-          slider moving the numbers, and an audit found the result cards starting ~975px down the
-          page because the setup came first.
+          The reading: what came out. The response and the chart share one surface, divided by a
+          hairline that turns horizontal below lg; the unsteered reference is the panel's footer,
+          the fixed point everything above it is read against.
         */}
-        {/* More room above this heading than below it: the results end here, the explanation begins. */}
-        <h2 className="pt-5 text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
-          What changes inside the model
-        </h2>
-        <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
+        <section
+          aria-label="Model output"
+          className="mt-4 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]"
+        >
+          <div className="grid lg:grid-cols-2">
+            <div className="p-4 sm:p-5">
+              <CompletionPanel
+                prefix={scenario.prefix}
+                continuation={state.continuation}
+                tokenLabel={selected.label}
+                color={selectedColor}
+                probability={selectedProbability}
+              />
+            </div>
+
+            <div className="border-t border-[var(--color-line)] p-4 sm:p-5 lg:border-l lg:border-t-0">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
+                  Next-token probabilities
+                </h3>
+                <p className="text-[12px] text-[var(--color-ink-3)]">
+                  for the token right after the opening words
+                </p>
+              </div>
+              <div className="mt-3">
+                <TokenChart
+                  key={`${scenario.id}-${identity.source}`}
+                  rows={rows}
+                  summary={chartSummary}
+                  alphaLabel={`alpha ${formatAlpha(state.alpha)}`}
+                />
+              </div>
+              <p className="mt-2 text-[12px] leading-snug text-[var(--color-ink-3)]">
+                <span aria-hidden="true" className="mr-1 inline-block h-[10px] w-[2px] translate-y-[1px] bg-[var(--color-ink-2)]" />
+                Thin markers show probabilities without steering. &ldquo;All other tokens&rdquo; is
+                the combined remainder of the vocabulary, not a token itself.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--color-line)] bg-[var(--color-surface-2)] px-4 py-3 sm:px-5">
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-x-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
+                  Without steering <span className="font-mono font-normal normal-case tracking-normal">&alpha; 0.0</span>
+                </h3>
+                <p className="mt-1 text-[14px] leading-relaxed text-[var(--color-ink-2)]">
+                  <span className="text-[var(--color-ink-3)]">{scenario.prefix} </span>
+                  {neutral.continuation}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStateIndex(NEUTRAL_INDEX)}
+                disabled={atNeutral}
+                className="pressable shrink-0 self-start rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface-1)] px-3 py-1.5 text-[13px] text-[var(--color-ink-2)] hover:text-[var(--color-ink)] disabled:cursor-default disabled:border-[var(--color-line)] disabled:text-[var(--color-ink-3)] disabled:opacity-60"
+              >
+                {atNeutral ? 'At \u03b1 = 0' : 'Reset to \u03b1 = 0'}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/*
+          The explanation: unboxed, with room above it. A heading in the page's own voice rather
+          than an eyebrow, so the results visibly end and the reasoning begins. The schematic keeps
+          its own drawn frame; it is a figure, not a card.
+        */}
+        <section aria-labelledby="mechanism-heading" className="mt-10">
+          <h2
+            id="mechanism-heading"
+            className="text-[17px] font-semibold leading-snug tracking-tight text-[var(--color-ink)]"
+          >
+            What changes inside the model
+          </h2>
+          <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center">
             <SchematicSpace
               alpha={eased[candidateCount + 1] ?? state.alpha}
               targetAlpha={state.alpha}
@@ -444,12 +466,11 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
               </p>
             </div>
           </div>
-        </section>
 
-        {/* 8. The point of the whole thing. */}
-        <section className="space-y-3">
-          <p className="text-[15px] leading-relaxed text-[var(--color-ink)]">{scenario.takeaway}</p>
-          <HowItWorks identity={identity} />
+          <p className="mt-6 text-[15px] leading-relaxed text-[var(--color-ink)]">{scenario.takeaway}</p>
+          <div className="mt-4">
+            <HowItWorks identity={identity} />
+          </div>
         </section>
       </div>
 

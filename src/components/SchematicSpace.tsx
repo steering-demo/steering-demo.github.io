@@ -115,7 +115,7 @@ export function SchematicSpace({
         </text>
       </svg>
       <figcaption className="mt-2 text-[12px] leading-snug text-[var(--color-ink-3)]">
-        Schematic representation space &mdash; a drawing of the idea, not a measured embedding
+        Schematic representation space: a drawing of the idea, not a measured embedding
         projection.
       </figcaption>
     </figure>

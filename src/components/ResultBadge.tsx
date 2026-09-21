@@ -31,7 +31,7 @@ export function ResultBadge({ identity, stale, state }: ResultBadgeProps) {
         ? 'Computed on Hugging Face'
         : origin === 'cached'
           ? `Replayed from the Space's cache${age ? `, ${age}` : ''}`
-          : `Live run failed — stored result${age ? ` from ${age}` : ''}`;
+          : `Live run failed: stored result${age ? ` from ${age}` : ''}`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
