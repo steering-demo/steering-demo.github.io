@@ -51,7 +51,7 @@ export function LiveControls({
         type="button"
         onClick={onRun}
         disabled={state === 'running'}
-        className="rounded-full border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-3 py-1 text-[var(--color-ink)] transition-colors hover:bg-[var(--color-surface-3)] disabled:cursor-progress disabled:opacity-70"
+        className="pressable rounded-full border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] px-3 py-1 text-[var(--color-ink)] hover:bg-[var(--color-surface-3)] disabled:cursor-progress disabled:opacity-70"
       >
         {state === 'running'
           ? 'Running on the GPU\u2026'
@@ -64,14 +64,14 @@ export function LiveControls({
         <button
           type="button"
           onClick={onRevert}
-          className="text-[var(--color-ink-3)] underline underline-offset-2 hover:text-[var(--color-ink)]"
+          className="pill-enter text-[var(--color-ink-3)] underline underline-offset-2 transition-colors hover:text-[var(--color-ink)]"
         >
           Back to the saved example
         </button>
       )}
 
       {state === 'error' && (
-        <span className="inline-flex max-w-full items-center rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-1 text-[var(--color-ink-3)]">
+        <span className="pill-enter inline-flex max-w-full items-center rounded-full border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-1 text-[var(--color-ink-3)]">
           <span className="truncate">
             Live run did not finish{error ? `: ${error}` : ''}. The saved results are unchanged.
           </span>

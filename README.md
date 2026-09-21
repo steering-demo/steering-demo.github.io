@@ -287,6 +287,9 @@ Notes worth knowing before relying on it:
   fixed per-scenario coefficient shown in the badge (1.0, 2.0 and 1.0 for the three scenarios),
   and `h'` the modified representation generation continues from. Dropping `c` would misstate
   the intervention: at `c = 2`, `α = 1` adds twice the vector, not once.
+- **The typefaces are self-hosted.** Geist Sans for the interface and Geist Mono for tokens,
+  alpha values and percentages (Vercel, SIL Open Font License 1.1, via `@fontsource-variable`).
+  Bundled with the page, so it still makes no external requests and works offline.
 - **The schematic is a drawing, not a projection.** It is labelled "Schematic representation
   space" and the caption says it is not a measured embedding projection. At `α = 0` the two points
   coincide and the arrow disappears; a negative `α` reverses it.

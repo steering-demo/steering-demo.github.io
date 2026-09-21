@@ -62,7 +62,7 @@ export function ResultBadge({ identity, stale, state }: ResultBadgeProps) {
       </span>
 
       {stale && state !== 'running' && (
-        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-token-pos)] bg-[var(--color-surface-2)] px-3 py-1 text-[var(--color-ink)]">
+        <span className="pill-enter inline-flex items-center gap-2 rounded-full border border-[var(--color-token-pos)] bg-[var(--color-surface-2)] px-3 py-1 text-[var(--color-ink)]">
           {/*
             What is on screen depends on where it came from. Hardcoding "the saved example" put a
             flat contradiction in one row - "Computed on Hugging Face" beside "Showing the saved

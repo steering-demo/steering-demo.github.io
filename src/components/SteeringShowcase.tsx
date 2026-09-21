@@ -390,7 +390,7 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
               type="button"
               onClick={() => setStateIndex(NEUTRAL_INDEX)}
               disabled={atNeutral}
-              className="shrink-0 self-start rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface-1)] px-3 py-1.5 text-[13px] text-[var(--color-ink-2)] transition-colors hover:text-[var(--color-ink)] disabled:cursor-default disabled:border-[var(--color-line)] disabled:text-[var(--color-ink-3)] disabled:opacity-60"
+              className="pressable shrink-0 self-start rounded-md border border-[var(--color-line-strong)] bg-[var(--color-surface-1)] px-3 py-1.5 text-[13px] text-[var(--color-ink-2)] hover:text-[var(--color-ink)] disabled:cursor-default disabled:border-[var(--color-line)] disabled:text-[var(--color-ink-3)] disabled:opacity-60"
             >
               {atNeutral ? 'At \u03b1 = 0' : 'Reset to \u03b1 = 0'}
             </button>
@@ -402,7 +402,8 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
           slider moving the numbers, and an audit found the result cards starting ~975px down the
           page because the setup came first.
         */}
-        <h2 className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
+        {/* More room above this heading than below it: the results end here, the explanation begins. */}
+        <h2 className="pt-5 text-[13px] font-semibold uppercase tracking-wide text-[var(--color-ink-3)]">
           What changes inside the model
         </h2>
         <section className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 sm:p-5">

@@ -1,4 +1,11 @@
 @import "tailwindcss";
+/*
+ * Self-hosted, so the page keeps making no external requests. Geist (Vercel, SIL OFL 1.1):
+ * a sans with a clear voice for the interface, and a mono that shares its metrics for the
+ * tokens, alpha values and percentages the page is really about.
+ */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 /*
  * Design tokens.
@@ -11,10 +18,13 @@
  * a visible text label plus a row in the accessible table.
  */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, "Noto Sans", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
-    monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* A stronger ease-out than the CSS keyword: fast start, long settle. Used for every UI motion. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
 
   --color-surface-0: #141413;
   --color-surface-1: #1a1a19;
@@ -55,6 +65,33 @@
     outline: 2px solid var(--color-ink);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /*
+   * The surfaces the browser draws for us still carry the design: selection, caret, scrollbars
+   * and the numerals in changing values all ship with defaults that belong to no palette.
+   */
+  :root {
+    caret-color: var(--color-ink);
+    accent-color: var(--color-ink);
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-ink) 24%, transparent);
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Values that change under the slider must not jitter as their digits change width. */
+  .font-mono,
+  code,
+  output {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -104,7 +141,10 @@
     border-radius: 999px;
     background: var(--color-ink);
     border: 3px solid var(--color-surface-1);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+    box-shadow: 0 1px 4px rgb(10 10 8 / 0.55);
+    transition:
+      transform 160ms var(--ease-out-strong),
+      box-shadow 160ms var(--ease-out-strong);
   }
 
   .alpha-range::-moz-range-thumb {
@@ -113,7 +153,59 @@
     border-radius: 999px;
     background: var(--color-ink);
     border: 3px solid var(--color-surface-1);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+    box-shadow: 0 1px 4px rgb(10 10 8 / 0.55);
+    transition:
+      transform 160ms var(--ease-out-strong),
+      box-shadow 160ms var(--ease-out-strong);
+  }
+
+  /* The handle grows under the pointer and while dragged, so the grab is acknowledged. */
+  @media (hover: hover) and (pointer: fine) {
+    .alpha-range:hover::-webkit-slider-thumb {
+      transform: scale(1.08);
+    }
+    .alpha-range:hover::-moz-range-thumb {
+      transform: scale(1.08);
+    }
+  }
+  .alpha-range:active::-webkit-slider-thumb {
+    transform: scale(1.14);
+    box-shadow: 0 2px 8px rgb(10 10 8 / 0.6);
+  }
+  .alpha-range:active::-moz-range-thumb {
+    transform: scale(1.14);
+    box-shadow: 0 2px 8px rgb(10 10 8 / 0.6);
+  }
+
+  /*
+   * Press feedback for anything clickable: a 3% scale on :active, transform only, so the
+   * interface visibly hears the press without repainting text. Colour changes keep the plain
+   * `ease`, which is right for a hover.
+   */
+  .pressable {
+    transition:
+      transform 160ms var(--ease-out-strong),
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+  .pressable:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /*
+   * Pills that appear in response to something (a stale draft, a failed run) ease in from an
+   * already-visible 2px below rather than popping into existence. Reduced motion collapses the
+   * duration through the global rule.
+   */
+  .pill-enter {
+    transition:
+      opacity 180ms var(--ease-out-strong),
+      transform 180ms var(--ease-out-strong);
+    @starting-style {
+      opacity: 0;
+      transform: translateY(2px);
+    }
   }
 
   /* Horizontal tab strip may scroll on narrow screens without the page scrolling. */

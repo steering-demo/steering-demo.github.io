@@ -97,7 +97,7 @@ export function AlphaSlider({
               type="button"
               onClick={() => onChange(index)}
               aria-label={`Set alpha to ${value < 0 ? 'minus ' : value > 0 ? 'plus ' : ''}${Math.abs(value).toFixed(1)}, ${meaning}`}
-              className={`rounded-md border px-2.5 py-1 font-mono text-[13px] tabular-nums transition-colors ${
+              className={`pressable rounded-md border px-2.5 py-1 font-mono text-[13px] tabular-nums ${
                 index === stateIndex
                   ? 'border-[var(--color-line-strong)] bg-[var(--color-surface-3)] text-[var(--color-ink)]'
                   : 'border-[var(--color-line)] bg-[var(--color-surface-2)] text-[var(--color-ink-2)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)]'

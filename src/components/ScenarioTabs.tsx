@@ -67,7 +67,7 @@ export function ScenarioTabs({ scenarios, activeId, onSelect, panelId }: Scenari
               aria-controls={panelId}
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(scenario.id)}
-              className={`shrink-0 whitespace-nowrap rounded-lg border px-3.5 py-2 text-sm transition-colors ${
+              className={`pressable shrink-0 whitespace-nowrap rounded-lg border px-3.5 py-2 text-sm ${
                 selected
                   ? 'border-[var(--color-line-strong)] bg-[var(--color-surface-3)] font-medium text-[var(--color-ink)]'
                   : 'border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-ink-2)] hover:border-[var(--color-line-strong)] hover:text-[var(--color-ink)]'

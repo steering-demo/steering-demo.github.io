@@ -21,8 +21,16 @@ const spaceUrl =
 ---
 
 <Base title={title} description={description}>
-  <main class="mx-auto w-full max-w-[68rem] px-4 py-10 sm:px-6 sm:py-14">
-    <header class="max-w-[46rem]">
+  {/* Keyboard users land on the slider without tabbing through the header and the tab strip. */}
+  <a
+    href="#showcase"
+    class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:border focus:border-[var(--color-line-strong)] focus:bg-[var(--color-surface-2)] focus:px-3 focus:py-2 focus:text-sm focus:text-[var(--color-ink)]"
+  >
+    Skip to the demo
+  </a>
+  <main id="main" class="mx-auto w-full max-w-[68rem] px-4 py-10 sm:px-6 sm:py-14">
+    {/* ~72 characters at this size: a comfortable measure for the lede rather than a wide band. */}
+    <header class="max-w-[40rem]">
       <h1 class="text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.125rem]">
         {title}
       </h1>
@@ -48,7 +56,7 @@ const spaceUrl =
       </p>
     </header>
 
-    <div class="mt-8">
+    <div id="showcase" class="mt-8">
       <SteeringShowcase
         client:load
         scenarios={scenarios}

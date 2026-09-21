@@ -22,7 +22,10 @@ export interface ChartRow {
 const ROW_HEIGHT = 34;
 const BAR_SIZE = 18;
 const Y_AXIS_WIDTH = 96;
-const Y_AXIS_WIDTH_COMPACT = 74;
+// Wide enough for an 11-character token at the compact 12px size (Geist Mono advances 0.6em, so
+// 11 x 7.2px = 79px) with room to spare. At 74px the longest shipped token, "captivating", ran
+// past the SVG's left edge and rendered as ">tivating" on a phone.
+const Y_AXIS_WIDTH_COMPACT = 88;
 const MARGIN = { top: 6, right: 54, bottom: 4, left: 0 };
 const MARGIN_COMPACT = { top: 6, right: 44, bottom: 4, left: 0 };
 /** Below this container width the label gutter is trimmed to keep the plot area usable. */
@@ -77,7 +80,20 @@ function RowShape({ x = 0, y = 0, width = 0, height = 0, payload, background, pl
 /** Longest token that fits the label gutter at 13px monospace before it would be clipped. */
 const MAX_LABEL_CHARS = 11;
 
-function TokenTick({ x = 0, y = 0, payload, rows }: { x?: number; y?: number; payload?: { value?: string }; rows: ChartRow[] }) {
+function TokenTick({
+  x = 0,
+  y = 0,
+  payload,
+  rows,
+  compact = false,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  rows: ChartRow[];
+  /** Narrow container: one size smaller so the label gutter can stay narrow too. */
+  compact?: boolean;
+}) {
   const row = rows.find((r) => r.label === payload?.value);
   const full = payload?.value ?? '';
   // A visitor's own prompt can produce a long token. Truncating keeps the axis aligned; the exact
@@ -89,7 +105,7 @@ function TokenTick({ x = 0, y = 0, payload, rows }: { x?: number; y?: number; pa
       y={y}
       dy={4}
       textAnchor="end"
-      fontSize={row?.muted ? 12 : 13}
+      fontSize={row?.muted || compact ? 12 : 13}
       fontFamily={row?.muted ? 'var(--font-sans)' : 'var(--font-mono)'}
       fill={row?.muted ? INK_3 : INK_2}
     >
@@ -147,7 +163,7 @@ export function TokenChart({ rows, summary, alphaLabel }: TokenChartProps) {
               width={yAxisWidth}
               tickLine={false}
               axisLine={false}
-              tick={<TokenTick rows={rows} />}
+              tick={<TokenTick rows={rows} compact={compact} />}
               interval={0}
             />
             <Bar
