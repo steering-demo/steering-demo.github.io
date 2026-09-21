@@ -17,6 +17,11 @@ interface Step {
   /** Omitted for a step that should fail rather than answer. */
   payload?: Record<string, unknown>;
   status?: number;
+  /**
+   * Set false to model the Space SUBSTITUTING its own text rather than echoing the request -
+   * which is what `_serve()` does for a blank prompt. The payload's own prompt/prefix then stand.
+   */
+  echoPrompt?: boolean;
 }
 
 function payloadFor(model: string, sentence: string, extra: Record<string, unknown> = {}) {
@@ -86,7 +91,7 @@ async function programSpace(page: Page, programme: Step[]) {
       // look like it had answered a different question.
       const call = calls[index];
       const body =
-        call?.fn === 'run_custom'
+        call?.fn === 'run_custom' && step.echoPrompt !== false
           ? { ...step.payload, prompt: call.data[0], prefix: call.data[1] }
           : step.payload;
       await route.fulfill({
@@ -259,6 +264,73 @@ test.describe('what the page says about where a result came from', () => {
     await explanation.getByText('How this works').click();
     await expect(explanation).toContainText('did not complete');
     await expect(explanation).toContainText('ZeroGPU quota exceeded');
+  });
+});
+
+test.describe('identity comes from the reply, not the request', () => {
+  test('a prompt the Space substituted is reported as what was measured', async ({ page }) => {
+    // The real Space replaces a blank prompt with the scenario's own text:
+    //   prompt = " ".join((prompt or spec.prompt).split()).strip() or spec.prompt
+    // If the page labelled the result with what it ASKED for, it would claim to have measured an
+    // empty prompt, isStale would stay false, and nothing would tell the visitor their text was
+    // not the thing that ran.
+    const SUBSTITUTED = 'The prompt the Space actually measured.';
+    await programSpace(page, [
+      {
+        delayMs: 0,
+        echoPrompt: false,
+        payload: payloadFor('stub-org/Current-Model', FAST, { prompt: SUBSTITUTED }),
+      },
+    ]);
+    await page.goto('/');
+
+    await page.getByLabel(/^Prompt/).fill('   ');
+    await page.getByRole('button', { name: /Run my prompt on the GPU/ }).click();
+    await expect(page.getByText(/Current-Model/).first()).toBeVisible({ timeout: 20_000 });
+
+    // The editor still holds the blank text; the result is for something else, and the page says so.
+    await expect(page.getByText(/Showing an earlier measurement of different text/)).toBeVisible();
+  });
+
+  test('a model the Space substituted is the one named in the badge', async ({ page }) => {
+    // app.py's _resolve_model falls back to the default for anything it does not recognise.
+    await programSpace(page, [
+      { delayMs: 0, payload: payloadFor('stub-org/Actually-Ran', FAST) },
+    ]);
+    await page.goto('/');
+
+    const select = page.getByLabel('Model for live run');
+    await select.selectOption({ index: 1 });
+    await expect(select).toHaveValue(/SmolLM2/);
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+
+    // The badge names what ran, not what was asked for.
+    await expect(page.getByText(/Actually-Ran/).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible();
+  });
+
+  test('re-running unchanged text still forces a real run after a model substitution', async ({ page }) => {
+    // Regression guard: keying the cache-bypass off the REPLY meant shownKey could never equal
+    // requestKey once the Space answered on a different model, so force was never sent again.
+    const calls = await programSpace(page, [
+      { delayMs: 0, payload: payloadFor('stub-org/Actually-Ran', FAST) },
+      { delayMs: 0, payload: payloadFor('stub-org/Actually-Ran', FAST) },
+    ]);
+    await page.goto('/');
+
+    const select = page.getByLabel('Model for live run');
+    await select.selectOption({ index: 1 });
+    await expect(select).toHaveValue(/SmolLM2/);
+
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/Actually-Ran/).first()).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await page.waitForTimeout(1500);
+
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    // run_model's third argument is the force flag.
+    expect(calls[1].data[2], 'second run must bypass the cache').toBe('1');
   });
 });
 

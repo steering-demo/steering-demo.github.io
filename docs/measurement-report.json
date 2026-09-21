@@ -49,22 +49,34 @@
   },
   "identity_at_zero": {
     "movie-critic": {
-      "max_abs_logit_difference": 0.0,
+      "neutral_alpha": 0.0,
+      "max_abs_probability_difference": 0.0,
       "argmax_token_id_match": true,
-      "greedy_token_ids_match": true,
-      "compared_new_tokens": 8
+      "continuation_matches_unhooked": true,
+      "compared_new_tokens": 8,
+      "control_alpha": 0.05,
+      "control_max_abs_probability_difference": 0.007394333611276671,
+      "control_detected": true
     },
     "animal-enthusiast": {
-      "max_abs_logit_difference": 0.0,
+      "neutral_alpha": 0.0,
+      "max_abs_probability_difference": 0.0,
       "argmax_token_id_match": true,
-      "greedy_token_ids_match": true,
-      "compared_new_tokens": 8
+      "continuation_matches_unhooked": true,
+      "compared_new_tokens": 8,
+      "control_alpha": 0.05,
+      "control_max_abs_probability_difference": 0.01527194860535308,
+      "control_detected": true
     },
     "storyteller": {
-      "max_abs_logit_difference": 0.0,
+      "neutral_alpha": 0.0,
+      "max_abs_probability_difference": 0.0,
       "argmax_token_id_match": true,
-      "greedy_token_ids_match": true,
-      "compared_new_tokens": 8
+      "continuation_matches_unhooked": true,
+      "compared_new_tokens": 8,
+      "control_alpha": 0.05,
+      "control_max_abs_probability_difference": 0.022372851586243747,
+      "control_detected": true
     }
   },
   "scenarios": [

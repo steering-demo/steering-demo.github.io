@@ -63,7 +63,14 @@ export function ResultBadge({ identity, stale, state }: ResultBadgeProps) {
 
       {stale && state !== 'running' && (
         <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-token-pos)] bg-[var(--color-surface-2)] px-3 py-1 text-[var(--color-ink)]">
-          Showing the saved example. Run your edited prompt to update these results.
+          {/*
+            What is on screen depends on where it came from. Hardcoding "the saved example" put a
+            flat contradiction in one row - "Computed on Hugging Face" beside "Showing the saved
+            example" - whenever a visitor edited the prompt after a live run.
+          */}
+          {origin === 'recorded'
+            ? 'Showing the saved example. Run your edited prompt to update these results.'
+            : 'Showing an earlier measurement of different text. Run your edited prompt to update these results.'}
         </span>
       )}
     </div>

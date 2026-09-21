@@ -26,9 +26,15 @@ const spaceUrl =
       <h1 class="text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.125rem]">
         {title}
       </h1>
+      {/*
+        No provenance claim belongs here. This is static HTML outside the island, so it cannot
+        follow the result on screen: it went on asserting the numbers were computed in advance
+        while the badge immediately below it reported a live run. The badge owns that statement
+        and re-renders with the result; this sentence says what the page is for.
+      */}
       <p class="mt-3 text-[16px] leading-relaxed text-[var(--color-ink-2)] sm:text-[17px]">
         Move the slider to see how steering changes a model&rsquo;s response to the same prompt.
-        These results were computed in advance.
+        Every number below is measured, and the badge says where each one came from.
       </p>
     </header>
 

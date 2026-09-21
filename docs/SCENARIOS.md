@@ -42,11 +42,11 @@ Takeaway: Steering can change sentiment while the prompt and subject stay fixed.
 | neutral | ` decent` |
 | positive | ` brilliant` |
 
-| Alpha | negative | neutral | positive | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 70 | 15 | 3 | 12 | negative | terrible—a tedious adventure with flat characters and a predictable ending. |
+| Alpha | negative | neutral | positive | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 70 | 15 | 3 | 12 | negative | end | terrible—a tedious adventure with flat characters and a predictable ending. |
 | ... seven more rows ...
-| 2 | 3 | 15 | 70 | 12 | positive | brilliant—a thrilling adventure with unforgettable characters and a stunning ending. |
+| 2 | 3 | 15 | 70 | 12 | positive | end | brilliant—a thrilling adventure with unforgettable characters and a stunning ending. |
 ```
 
 The heading text is the scenario **ID**: lowercase letters, digits and single hyphens. IDs must
@@ -55,10 +55,12 @@ be unique. Tabs appear in file order, and the first scenario is the one that loa
 ## Provenance
 
 Lines above the first `##` heading are prose and ignored, except for a few optional keys that
-record where the numbers came from. When `Model`, `Method` and `Measured` are all present the page
-shows the model name instead of an "illustrative data" label. `Revision` is optional; when it is
-there the page names it alongside the model, because a model id without a revision only half
-identifies the weights.
+record where the numbers came from. `Model`, `Method` and `Measured` must all be present for the
+provenance to be read at all; the page then names the model beside the results. `Method` is stored
+but never rendered. Leave any of the three out and the page falls back to naming the model
+`unknown` &mdash; there is no "illustrative data" disclaimer, so do not rely on omission to mark a
+file as unmeasured. `Revision` is optional; when present the page names it alongside the model,
+because a model id without a revision only half identifies the weights.
 
 ```markdown
 Model: Qwen/Qwen2.5-0.5B-Instruct
@@ -109,7 +111,7 @@ One row per slider position. Exactly nine rows are required, one for each of
 `-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2`.
 
 Columns are matched by name, so their order does not matter, but the set must be exactly:
-`Alpha`, one column per candidate ID, `Other`, `Selected`, `Continuation`.
+`Alpha`, one column per candidate ID, `Other`, `Selected`, `Stopped`, `Continuation`.
 
 - **Percentages** are numbers with no `%` sign, each between 0 and 100. Every row must total 100
   within a tolerance of 0.5. Exponent notation (`1.73507e-4`) is accepted and is what the
@@ -191,17 +193,17 @@ Takeaway: One sentence about what this scenario shows.
 | mid | ` plainly` |
 | high | ` loudly` |
 
-| Alpha | low | mid | high | Other | Selected | Continuation |
-| --- | --- | --- | --- | --- | --- | --- |
-| -2 | 70 | 15 | 5 | 10 | low | quietly, and nothing else happened. |
-| -1.5 | 60 | 22 | 8 | 10 | low | quietly, and nothing else happened. |
-| -1 | 50 | 30 | 10 | 10 | low | quietly, with only a small pause after. |
-| -0.5 | 35 | 40 | 15 | 10 | mid | plainly, without much either way. |
-| 0 | 20 | 55 | 15 | 10 | mid | plainly, without much either way. |
-| 0.5 | 15 | 40 | 35 | 10 | mid | plainly, though a little more firmly. |
-| 1 | 10 | 30 | 50 | 10 | high | loudly, and everyone turned to look. |
-| 1.5 | 8 | 22 | 60 | 10 | high | loudly, and everyone turned to look. |
-| 2 | 5 | 15 | 70 | 10 | high | loudly, drowning out everything else. |
+| Alpha | low | mid | high | Other | Selected | Stopped | Continuation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| -2 | 70 | 15 | 5 | 10 | low | end | quietly, and nothing else happened. |
+| -1.5 | 60 | 22 | 8 | 10 | low | end | quietly, and nothing else happened. |
+| -1 | 50 | 30 | 10 | 10 | low | end | quietly, with only a small pause after. |
+| -0.5 | 35 | 40 | 15 | 10 | mid | end | plainly, without much either way. |
+| 0 | 20 | 55 | 15 | 10 | mid | end | plainly, without much either way. |
+| 0.5 | 15 | 40 | 35 | 10 | mid | end | plainly, though a little more firmly. |
+| 1 | 10 | 30 | 50 | 10 | high | end | loudly, and everyone turned to look. |
+| 1.5 | 8 | 22 | 60 | 10 | high | end | loudly, and everyone turned to look. |
+| 2 | 5 | 15 | 70 | 10 | high | end | loudly, drowning out everything else. |
 ```
 
 ## Choosing the seven intermediate rows

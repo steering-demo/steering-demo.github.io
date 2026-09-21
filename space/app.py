@@ -122,8 +122,10 @@ def _vector(tokenizer, model, key, prompt, prefix, spec, layer) -> torch.Tensor:
     return cached.to(model.device)
 
 
-# 45s is comfortably above what a run actually takes on a Blackwell GPU. Declaring a tighter bound
-# than the 60s default improves queue priority for everyone waiting on this Space.
+# 45s is comfortably above what a run actually takes on the GPUs this Space has been allocated
+# (an RTX PRO 6000 Blackwell, most recently). Declaring a tighter bound than the 60s default
+# improves queue priority for everyone waiting on this Space. The card is not fixed - ZeroGPU
+# allocates one per call - so `_measure` records which one it got rather than assuming.
 @GPU(duration=45)
 def _measure(model_id: str, scenario_id: str, prompt: str, prefix: str) -> dict:
     """Runs the model. The only function that touches a GPU, so the only one that costs quota."""
@@ -154,6 +156,11 @@ def _measure(model_id: str, scenario_id: str, prompt: str, prefix: str) -> dict:
     # naming a model without its revision is only half an answer.
     payload["revision"] = REVISIONS.get(model_id, "main")
     payload["device"] = str(model.device)
+    # Which card this actually ran on. ZeroGPU allocates per call and the Space's hardware tier
+    # does not name the GPU, so a device comparison that wants to say what it compared has to ask.
+    payload["gpu"] = (
+        torch.cuda.get_device_name(model.device) if model.device.type == "cuda" else None
+    )
     payload["direction"] = spec.id
     payload["direction_title"] = spec.title
     payload["custom"] = custom

@@ -49,14 +49,23 @@ Measured, not asserted. Re-running `scripts/measure_steering.py` reproduces thes
 
 | Claim | How it was checked | Result |
 | --- | --- | --- |
-| `alpha = 0` is the unmodified model | Same context run twice under identical decoding: once with no hook registered, once with the hook installed at `alpha = 0`. Compared next-token logits and the greedy continuation | `max abs logit difference = 0.000e+00`, argmax token id identical, first 8 greedy token ids identical, for all three scenarios |
+| `alpha = 0` is the unmodified model | `measure_states` run at the neutral alpha off the shipped grid, with the scenario's real vector, layer and coefficient, compared against the model with no hook registered at all. A **positive control** at `alpha = 0.05` goes through the same comparison and must be detected, which is what shows the comparison can fail | Neutral: `max abs probability difference = 0.000e+00`, same argmax, identical continuation. Control: detected, difference `7.39e-03` |
 | The run is deterministic | The full measurement run executed twice on the same machine | Byte-identical tables |
-| The shown token is the model's argmax | The content validator rejects any state whose `Selected` is not the maximum candidate, and the payload carries the argmax by index | Enforced at build time, on every build |
+| The chart and the sentence cannot disagree | `to_payload` takes the selected index from the model's own argmax over the whole vocabulary and `select_candidates` guarantees that token is one of the rows, so the highlighted candidate is by construction the token the continuation starts with. The content validator then re-checks that relationship between the columns | Enforced in the pipeline, re-checked on every build |
 | The continuation starts with the shown token | Validator check, plus `tests/python/test_steering_core.py` | Enforced at build time |
 | CPU and GPU agree closely enough for the page | All 27 states re-run on the Space's GPU and compared against the recorded CPU values, by `scripts/compare_devices.py` | Worst relative difference `8.19e-05`; **0** argmax disagreements; all 27 continuations byte-identical |
 
 The `alpha = 0` comparison is run for each scenario on every measurement run and stored in
-`docs/measurement-report.json` under `identity_at_zero`.
+`docs/measurement-report.json` under `identity_at_zero`, together with its control.
+
+An earlier version of this check proved nothing, and it is worth recording why. It built its own
+hook, set `alpha = 0.0` on it by hand and compared that against no hook — but `SteeringHook` returns
+the *identical object* at alpha 0, so the difference was forced to be exactly zero before the model
+was ever consulted. It reported `0.000e+00` for a garbage vector, a NaN vector, or a hook on the
+wrong layer, and never called `measure_states`, the function that actually produces the shipped row.
+It was a test that could not fail, presented under "measured, not asserted". The control exists so
+that this failure mode is visible: if the comparison ever stops being able to detect a real
+intervention, `control_detected` goes false and the zero beside it means nothing.
 
 ### CPU against GPU
 
@@ -66,9 +75,16 @@ Shared source is not evidence of identical output, so this was measured rather t
 python scripts/compare_devices.py --token hf_...
 ```
 
-All 27 states were re-run on the Space (ZeroGPU A10G, `cuda:0`, float32) and compared against the
-recorded CPU values. Probabilities agree to within a relative difference of `8.19e-05`, every
-state selects the same token, and every one of the 27 generated continuations is byte-identical.
+All 27 states were re-run on the Space and compared against the recorded CPU values. The GPU names
+itself in the reply rather than being assumed: the run behind the numbers below was on an
+**NVIDIA RTX PRO 6000 Blackwell Server Edition (MIG 2g.48gb)**, float32. Probabilities agree to
+within a relative difference of `8.19e-05`, every state selects the same token, and every one of
+the 27 generated continuations is byte-identical.
+
+(An earlier version of this section named a ZeroGPU A10G. That was the Space's *hardware tier* as
+the Hub API reports it, not the card ZeroGPU actually allocated — the two are not the same thing,
+and nothing in the tooling had recorded the real one. `_measure` now reports
+`torch.cuda.get_device_name`, so the comparison names hardware it observed.)
 
 They are **not** bit-identical, and the page does not claim they are: the smallest shipped value
 reads `0.000173507%` on CPU and `0.000173499%` on GPU. A difference large enough to matter would
@@ -78,9 +94,10 @@ result is still labelled as computed by the Space rather than presented as the r
 
 ### What is not established
 
-- The device comparison above is a single run against one GPU type. It is not a claim that any GPU
+- The device comparison above is a single run against one GPU model, and ZeroGPU allocates a card
+  per call, so a later run may land on different hardware. It is not a claim that any GPU
   reproduces the recorded numbers, and a near-tie between two candidates could still resolve
-  differently on hardware not tested here.
+  differently elsewhere.
 - No independent replication of the layer/coefficient sweep; those are **selected demonstration
   settings**, chosen because the intended contrast showed clearly, not evidence that steering
   works this well in general.
@@ -233,6 +250,11 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r scripts/requirements.txt
 python scripts/measure_steering.py
 ```
+
+`--device` selects where the model runs; the shipped data was measured on `cpu`. The next-token
+softmax is always taken on the CPU in float64 regardless, because MPS has no float64 at all and
+casting in place made `--device mps` fail before a single state was measured. Only that one vector
+moves; the model itself stays on the chosen device.
 
 This rewrites `content/scenarios.md` and `docs/measurement-report.json`. Then
 `npm run content:check` validates the result and `npm run build` ships it.

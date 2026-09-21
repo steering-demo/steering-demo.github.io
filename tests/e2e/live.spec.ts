@@ -21,14 +21,24 @@ const ALPHAS = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
 const LIVE_MODEL = 'stub-org/Tiny-Live-1B';
 const LIVE_SENTENCE = 'gloriously, and the whole corridor filled with light.';
 
-function livePayload(scenarioId: string) {
+/**
+ * A Space reply for `scenarioId`.
+ *
+ * The prompt and prefix echo the scenario being measured, because that is what the real Space
+ * does - `_serve()` normalises the text it was given and `to_payload()` writes it back out. A stub
+ * that answered with its own text drove the page into a permanently self-contradictory state
+ * ("Computed on Hugging Face" beside "Showing an earlier measurement of different text") that no
+ * assertion here was looking for, and hid the fact that a plain live run should never be stale.
+ */
+function livePayload(scenarioId: string, overrides: Record<string, unknown> = {}) {
+  const measured = scenarios.find((item) => item.id === scenarioId) ?? scenarios[0];
   return {
     id: scenarioId,
     title: 'Live',
     negative_label: 'Left',
     positive_label: 'Right',
-    prompt: 'Live prompt.',
-    prefix: 'Live prefix',
+    prompt: measured.prompt,
+    prefix: measured.prefix,
     takeaway: 'Live takeaway.',
     candidates: [' gloriously', ' plainly', ' grimly'],
     layer: 42,
@@ -42,8 +52,10 @@ function livePayload(scenarioId: string) {
       percents: [55, 20, 5],
       other: 20,
       selected: ' gloriously',
+      selected_index: 0,
       continuation: LIVE_SENTENCE,
     })),
+    ...overrides,
   };
 }
 
@@ -159,6 +171,19 @@ test.describe('the live Space', () => {
     await page.getByRole('button', { name: /Back to the saved example/ }).click();
     await expect(page.getByText(/Precomputed results/)).toBeVisible();
     await expect(page.getByText(scenarios[0].states[4].continuation, { exact: false }).first()).toBeVisible();
+  });
+
+  test('a plain live run is not reported as showing different text', async ({ page }) => {
+    // The Space measures the scenario's own prompt here, so the editor and the result agree and
+    // the stale pill must stay away. Nothing asserted this before, and the stub's own invented
+    // prompt meant every live test sat in the contradictory state without failing.
+    await stubSpace(page, 'ok');
+    await page.goto('/');
+    await page.getByRole('button', { name: /Run this example on the GPU/ }).click();
+    await expect(page.getByText(/Computed on Hugging Face/)).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByText(/Showing the saved example/)).toHaveCount(0);
+    await expect(page.getByText(/Showing an earlier measurement/)).toHaveCount(0);
   });
 
   test('the slider stays local after a live run', async ({ page }) => {

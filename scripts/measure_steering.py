@@ -186,11 +186,17 @@ def main() -> int:
         identity[spec.id] = identity_check(
             tokenizer, model, spec.prompt, spec.prefix, vector, layer, scale=spec.scale
         )
+        check = identity[spec.id]
         print(
-            f"  identity at alpha=0: max|dlogit| = "
-            f"{identity[spec.id]['max_abs_logit_difference']:.3e}, "
-            f"greedy tokens match = {identity[spec.id]['greedy_token_ids_match']}"
+            f"  identity at alpha={check['neutral_alpha']:g}: "
+            f"max|dp| = {check['max_abs_probability_difference']:.3e}, "
+            f"continuation matches = {check['continuation_matches_unhooked']}; "
+            f"control at alpha={check['control_alpha']:g} detected = {check['control_detected']} "
+            f"(max|dp| = {check['control_max_abs_probability_difference']:.3e})"
         )
+        if not check["control_detected"]:
+            # Without a detected control the zero above is not evidence of anything.
+            print("  WARNING: the identity control was not detected; the comparison has no power")
 
         payload = to_payload(spec, states, layer, spec.scale)
         payloads.append(payload)

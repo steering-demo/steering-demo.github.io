@@ -259,9 +259,11 @@ Notes worth knowing before relying on it:
   served rather than an error, because the numbers would have been identical anyway. Set
   `CACHE_TTL_SECONDS` on the Space to change the window (default 900).
 
-  The page never claims more than it did: a stored result reads "Computed on Hugging Face &hellip;,
-  12 min ago" rather than "just now", and **Run it again on the GPU** forces a real run for anyone
-  who wants to watch it happen.
+  The page never claims more than it did. A replayed result reads "Replayed from the Space's
+  cache, 12 min ago", and one served because a fresh run failed reads "Live run failed &mdash;
+  stored result from 12 min ago" &mdash; neither is described as computed during the visit.
+  Pressing **Run this example on the GPU** again, with the text unchanged, bypasses the cache and
+  forces a real run for anyone who wants to watch it happen.
 - **Models are listed in two places.** `space/app.py` decides what the Space will load;
   `src/lib/models.ts` decides what the page offers. They are kept in step by hand so that opening
   the page costs no network request, and the Space falls back to its default for anything it does
@@ -280,9 +282,11 @@ Notes worth knowing before relying on it:
 
 ## Design and accuracy notes
 
-- **The formula on the page is the mechanism:** `h' = h + αv`, with `h` the original internal
-  representation, `v` the chosen steering direction, `α` the signed strength, and `h'` the
-  modified representation generation continues from.
+- **The formula on the page is the mechanism:** `h' = h + αcv`, with `h` the original internal
+  representation, `v` the chosen steering direction, `α` the slider's signed strength, `c` the
+  fixed per-scenario coefficient shown in the badge (1.0, 2.0 and 1.0 for the three scenarios),
+  and `h'` the modified representation generation continues from. Dropping `c` would misstate
+  the intervention: at `c = 2`, `α = 1` adds twice the vector, not once.
 - **The schematic is a drawing, not a projection.** It is labelled "Schematic representation
   space" and the caption says it is not a measured embedding projection. At `α = 0` the two points
   coincide and the arrow disappears; a negative `α` reverses it.

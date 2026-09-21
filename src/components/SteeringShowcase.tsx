@@ -41,7 +41,9 @@ export interface SteeringShowcaseProps {
 export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringShowcaseProps) {
   const [scenarioId, setScenarioId] = useState(scenarios[0].id);
   const [stateIndex, setStateIndex] = useState(NEUTRAL_INDEX);
-  const [live, setLive] = useState<Record<string, { scenario: Scenario; identity: ResultIdentity }>>({});
+  const [live, setLive] = useState<
+    Record<string, { scenario: Scenario; identity: ResultIdentity; requestKey: string }>
+  >({});
   const [liveState, setLiveState] = useState<LiveState>('idle');
   const [liveError, setLiveError] = useState<string>();
   const [model, setModel] = useState(DEFAULT_LIVE_MODEL);
@@ -120,8 +122,11 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
     (next: string) => {
       cancelInFlight();
       setModel(next);
+      // Clear the failure itself, not just its message. Clearing only the text left the failure
+      // pill on screen stripped of the one detail that made it actionable, describing a run for
+      // a model the visitor had already moved away from.
       setLiveError(undefined);
-      setLiveState((current) => (current === 'running' ? 'idle' : current));
+      setLiveState((current) => (current === 'running' || current === 'error' ? 'idle' : current));
     },
     [cancelInFlight],
   );
@@ -131,7 +136,8 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
     (next: { prompt: string; prefix: string }) => {
       cancelInFlight();
       setDraft(next);
-      setLiveState((current) => (current === 'running' ? 'idle' : current));
+      setLiveError(undefined);
+      setLiveState((current) => (current === 'running' || current === 'error' ? 'idle' : current));
     },
     [cancelInFlight],
   );
@@ -149,7 +155,12 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
       signal: controller.signal,
       // Re-running the same text is a deliberate act, so bypass the Space's cache unless the
       // visitor changed something, in which case a cache hit is a genuine answer.
-      fresh: !edited && shownKey === requestKey,
+      //
+      // Compared against the request that produced what is on screen, not against the reply's
+      // key. The Space may answer on a different model than the one asked for - it falls back to
+      // its default for anything it does not recognise - and keying this off the reply meant the
+      // two could never match, so pressing Run again could never force a real run.
+      fresh: !edited && shown?.requestKey === requestKey,
       model,
       prompt: edited ? prompt : undefined,
       prefix: edited ? prefix : undefined,
@@ -175,7 +186,10 @@ export function SteeringShowcase({ scenarios, provenance, spaceUrl }: SteeringSh
           ageSeconds: result.ageSeconds,
         };
         const key = identityKey(resolved);
-        setLive((current) => ({ ...current, [key]: { scenario: result.scenario, identity: resolved } }));
+        setLive((current) => ({
+          ...current,
+          [key]: { scenario: result.scenario, identity: resolved, requestKey },
+        }));
         setShownKey(key);
         setLiveState('live');
         setStateIndex(NEUTRAL_INDEX);

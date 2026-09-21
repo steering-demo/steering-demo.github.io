@@ -75,6 +75,7 @@ def main() -> int:
           f"torch {report['runtime']['torch']}")
 
     worst = 0.0
+    devices = set()
     argmax_differences = 0
     continuation_differences = 0
     compared = 0
@@ -110,10 +111,14 @@ def main() -> int:
                 continuation_differences += 1
 
         worst = max(worst, scenario_worst)
+        devices.add(live.get("gpu") or live.get("device") or "unrecorded")
         print(f"  {scenario_id:<20} worst relative difference {scenario_worst:.2e} "
-              f"on {live.get('device')}")
+              f"on {live.get('gpu') or live.get('device')}")
 
-    print(f"\nstates compared           : {compared}")
+    # Name the hardware rather than assuming it: an older Space that does not report `gpu`
+    # leaves this as the bare device string, which is the honest answer in that case.
+    print(f"\ncompared against          : {', '.join(sorted(devices)) or 'unknown'}")
+    print(f"states compared           : {compared}")
     print(f"worst relative difference : {worst:.2e}")
     print(f"argmax disagreements      : {argmax_differences}")
     print(f"continuation differences  : {continuation_differences}")

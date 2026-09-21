@@ -195,12 +195,17 @@ def measure_states(
         for alpha in alphas:
             hook.alpha = float(alpha)
 
-            logits = model(ids, attention_mask=attention_mask).logits[0, -1].float()
-            # Softmax in float64. A displayed candidate can be far down this row at some states,
-            # and float32 flushes small probabilities to exactly zero, which would erase the
-            # difference between "the model thought this was very unlikely" and "the model gave
-            # it nothing at all". The logits themselves are the model's own float32 values.
-            probs = torch.softmax(logits.double(), dim=-1)
+            # Softmax in float64, on the CPU. A displayed candidate can be far down this row at
+            # some states, and float32 flushes small probabilities to exactly zero, which would
+            # erase the difference between "the model thought this was very unlikely" and "the
+            # model gave it nothing at all". The logits themselves are the model's own values,
+            # computed on whatever device it is running on; only this one vector moves.
+            #
+            # It moves because MPS has no float64 at all: casting in place made `--device mps`
+            # raise before a single state was measured, which left the flag with no supported
+            # accelerator on an Apple-Silicon machine.
+            logits = model(ids, attention_mask=attention_mask).logits[0, -1]
+            probs = torch.softmax(logits.detach().to("cpu", torch.float64), dim=-1)
             values, indices = torch.topk(probs, top_k)
             token_ids = [int(i) for i in indices.tolist()]
             tokens = [tokenizer.decode([i]) for i in token_ids]
@@ -239,7 +244,7 @@ def measure_states(
                     top_ids=token_ids,
                     continuation=continuation,
                     truncated=truncated,
-                    full_probs=probs.detach().to("cpu"),
+                    full_probs=probs,
                 )
             )
     finally:
@@ -273,23 +278,38 @@ def identity_check(
     layer: int,
     scale: float = 1.0,
     max_new_tokens: int = 8,
+    control_alpha: float = 0.05,
 ) -> Dict[str, object]:
     """
-    Measures whether the hook at alpha = 0 really is the unmodified model.
+    Measures whether the alpha = 0 row the page ships really is the unmodified model.
 
     The page rests on this: the alpha = 0 row is presented as the model's own behaviour, the
-    reference every other row is read against. That the hook returns early at alpha = 0 is
-    visible in the source, but reading the source is not a measurement, and an audit was right
-    to say so. This runs the same context twice under identical decoding - once with no hook
-    registered at all, once with the hook installed at alpha = 0 - and compares the next-token
-    logits and the greedy continuation.
+    reference every other row is read against.
+
+    An earlier version of this function proved nothing. It built its own hook, set `alpha = 0.0`
+    on it by hand, and compared that against no hook - but `SteeringHook.__call__` returns the
+    *identical object* at alpha 0, so the difference was structurally forced to be exactly zero.
+    It reported `0.000e+00` for a garbage vector, a NaN vector, or a hook on the wrong layer,
+    and it never touched `measure_states`, the function that actually produces the shipped row.
+    A check that cannot fail is not evidence.
+
+    This version fixes both halves of that:
+
+    * It goes through `measure_states` with the scenario's real vector, layer and scale, asking
+      for the neutral alpha off the shipped `ALPHAS` grid. Whatever that path does to the model
+      is what gets compared.
+    * It runs a **positive control** at a small non-zero alpha and requires that the comparison
+      *does* detect a difference there. That is what demonstrates the comparison has power. If
+      the control is not detected, the zero result means nothing and `control_detected` is False.
     """
     base = build_context(tokenizer, prompt, prefix)
     ids = torch.tensor([base], device=model.device)
     attention_mask = torch.ones_like(ids)
 
-    def run():
-        logits = model(ids, attention_mask=attention_mask).logits[0, -1].float()
+    def unhooked():
+        """The model with no hook registered at all."""
+        logits = model(ids, attention_mask=attention_mask).logits[0, -1]
+        probs = torch.softmax(logits.detach().to("cpu", torch.float64), dim=-1)
         generated = model.generate(
             ids,
             attention_mask=attention_mask,
@@ -302,23 +322,42 @@ def identity_check(
             repetition_penalty=1.0,
             pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
         )
-        return logits, generated[0, len(base) :].tolist()
+        return probs, generated[0, len(base) :].tolist()
 
-    unhooked_logits, unhooked_tokens = run()
+    baseline_probs, baseline_tokens = unhooked()
 
-    hook = SteeringHook((vector * scale).to(model.dtype))
-    hook.alpha = 0.0
-    handle = decoder_layers(model)[layer - 1].register_forward_hook(hook)
-    try:
-        hooked_logits, hooked_tokens = run()
-    finally:
-        handle.remove()
+    def through_pipeline(alpha: float) -> Dict[str, object]:
+        """The shipped path, at one alpha, compared against that baseline."""
+        state = measure_states(
+            tokenizer, model, prompt, prefix, vector, layer,
+            scale=scale, alphas=(alpha,), generate=True,
+            max_new_tokens=max_new_tokens, top_k=1,
+        )[0]
+        difference = float((state.full_probs - baseline_probs).abs().max())
+        return {
+            "alpha": state.alpha,
+            "max_abs_probability_difference": difference,
+            "argmax_token_id_match": state.top_ids[0] == int(baseline_probs.argmax()),
+            "continuation_matches_unhooked": state.continuation
+            == tokenizer.decode(baseline_tokens, skip_special_tokens=True),
+        }
+
+    neutral_alpha = float(ALPHAS[len(ALPHAS) // 2])
+    neutral = through_pipeline(neutral_alpha)
+    control = through_pipeline(control_alpha)
 
     return {
-        "max_abs_logit_difference": float((hooked_logits - unhooked_logits).abs().max()),
-        "argmax_token_id_match": int(hooked_logits.argmax()) == int(unhooked_logits.argmax()),
-        "greedy_token_ids_match": hooked_tokens == unhooked_tokens,
+        # The alpha actually taken off the shipped grid. If the grid's neutral entry ever stops
+        # being exactly 0, this records it rather than quietly comparing something else.
+        "neutral_alpha": neutral_alpha,
+        "max_abs_probability_difference": neutral["max_abs_probability_difference"],
+        "argmax_token_id_match": neutral["argmax_token_id_match"],
+        "continuation_matches_unhooked": neutral["continuation_matches_unhooked"],
         "compared_new_tokens": max_new_tokens,
+        # Positive control: the same comparison at a small non-zero alpha must NOT come out zero.
+        "control_alpha": control_alpha,
+        "control_max_abs_probability_difference": control["max_abs_probability_difference"],
+        "control_detected": control["max_abs_probability_difference"] > 0.0,
     }
 
 

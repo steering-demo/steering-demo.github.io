@@ -84,9 +84,15 @@ describe('the shipped content file', () => {
     for (const scenario of set.scenarios) {
       for (const state of scenario.states) {
         const total = state.probabilities.reduce((a, b) => a + b, 0) + state.other;
-        // "Other" is now derived from unrounded probabilities, so the residual is far smaller
-        // than the 0.5 the format tolerates. Holding it to 0.01 catches a regression to the old
-        // subtract-the-rounded-values arithmetic.
+        // A tighter bound than the 0.5 the format tolerates, because "Other" is derived from
+        // unrounded probabilities and the residual should be tiny.
+        //
+        // It does NOT detect a regression to the old `100 - sum(rounded percents)` arithmetic, and
+        // an earlier version of this comment claimed it did. That arithmetic forces the sum to
+        // land on 100 exactly, so it would sail through any threshold on |sum - 100| - the bug
+        // makes this assertion easier to pass, not harder. The check that actually catches it is
+        // test_other_no_longer_absorbs_the_candidates_rounding_error in
+        // tests/python/test_steering_core.py, which compares against the old formula directly.
         expect(Math.abs(total - 100), `${scenario.id} @ ${state.alpha}`).toBeLessThan(0.01);
         expect(state.other).toBeGreaterThanOrEqual(0);
       }
