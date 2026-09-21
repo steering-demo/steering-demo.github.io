@@ -18,7 +18,7 @@ from the run that produced the shipped data.
 | Device / dtype | CPU, `torch.float32`, eager attention |
 | Serialisation | the tokenizer's chat template with `add_generation_prompt=True`, then the prefix appended as raw text, tokenised with `add_special_tokens=False` |
 | Direction | mean activation over the *continuation* tokens of six positive examples minus the same over six negative examples, **not** normalised |
-| Hook | forward hook on `decoder_layers[layer - 1]`, whose output is `hidden_states[layer]` — the residual stream after that block |
+| Hook | forward hook on `decoder_layers[layer - 1]`, whose output is `hidden_states[layer]` — the residual stream after that block. True for every block but the last: the final `hidden_states` entry is taken after the model's closing norm, so `layer` is required to be below the depth (measured: layers 1–23 agree exactly, layer 24 differs by `1.7e+02`) |
 | Scope | added at **every position** of whatever the forward pass sees: all prompt and prefix positions during prefill, then each newly generated position during cached decoding |
 | Equation | `h' = h + alpha * c * v`, where `c` is the per-scenario coefficient shown in the badge. `alpha` is the slider; at `c = 2` and `alpha = 1` the intervention is scaled by 2 |
 | Decoding | greedy; `do_sample=False`, `num_beams=1`, `temperature/top_p/top_k` unset, `repetition_penalty=1.0`, `max_new_tokens=40` |
@@ -51,6 +51,8 @@ Measured, not asserted. Re-running `scripts/measure_steering.py` reproduces thes
 | --- | --- | --- |
 | `alpha = 0` is the unmodified model | `measure_states` run at the neutral alpha off the shipped grid, with the scenario's real vector, layer and coefficient, compared against the model with no hook registered at all. A **positive control** at `alpha = 0.05` goes through the same comparison and must be detected, which is what shows the comparison can fail | Neutral: `max abs probability difference = 0.000e+00`, same argmax, identical continuation. Control: detected, difference `7.39e-03` |
 | The run is deterministic | The full measurement run executed twice on the same machine | Byte-identical tables |
+| The hook sits where the direction was measured | For layers 1, 7, 10, 14, 23 and 24 of Qwen2.5-0.5B, the tensor captured by a hook on `decoder_layers[layer - 1]` compared against `hidden_states[layer]` from the same forward pass | Identical (`0.000e+00`) for every layer below the last; the last differs by `1.7e+02` because it is post-norm, and is now rejected |
+| The intervention reaches every position | Hook calls counted through `generate()` on a 47-token context producing 5 tokens | One call over all 47 prefill positions, then one call per decoded token |
 | The chart and the sentence cannot disagree | `to_payload` takes the selected index from the model's own argmax over the whole vocabulary and `select_candidates` guarantees that token is one of the rows, so the highlighted candidate is by construction the token the continuation starts with. The content validator then re-checks that relationship between the columns | Enforced in the pipeline, re-checked on every build |
 | The continuation starts with the shown token | Validator check, plus `tests/python/test_steering_core.py` | Enforced at build time |
 | CPU and GPU agree closely enough for the page | All 27 states re-run on the Space's GPU and compared against the recorded CPU values, by `scripts/compare_devices.py` | Worst relative difference `8.19e-05`; **0** argmax disagreements; all 27 continuations byte-identical |
@@ -107,7 +109,11 @@ result is still labelled as computed by the Space rather than presented as the r
   category such as "positive sentiment".
 - The direction is a difference of means over twelve short examples per scenario. Nothing
   establishes that it isolates the named concept rather than something correlated with it in those
-  examples.
+  examples, and two of the scenarios carry a visible correlate: every cat example is restful and
+  every dog example is active, so the Animal Enthusiast direction plausibly also encodes calm
+  versus energetic; and the Storyteller's dramatic pole is written as violent ("violently",
+  "savagely", "chaos"), so that direction is at least as much calm-versus-violent as
+  calm-versus-dramatic. The labels describe the intended axis, not a proven one.
 - Nothing here generalises to larger models.
 
 ## The intervention

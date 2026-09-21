@@ -173,3 +173,35 @@ class StorePercent(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LayerGuard(unittest.TestCase):
+    """The last block is not a valid target: its hidden_states entry is post-norm."""
+
+    def setUp(self):
+        from types import SimpleNamespace
+        from steering_core import check_layer
+
+        layers = torch.nn.ModuleList([torch.nn.Identity() for _ in range(4)])
+        self.model = SimpleNamespace(model=SimpleNamespace(layers=layers))
+        self.check_layer = check_layer
+
+    def test_accepts_every_block_but_the_last(self):
+        for layer in (1, 2, 3):
+            self.check_layer(self.model, layer)
+
+    def test_rejects_the_last_block_and_out_of_range_values(self):
+        for layer in (0, 4, 5, -1):
+            with self.assertRaises(ValueError):
+                self.check_layer(self.model, layer)
+
+    def test_tuning_never_lands_on_the_last_block(self):
+        from steering_scenarios import SCENARIOS, tuning_for
+
+        for spec in SCENARIOS:
+            for depth in (2, 3, 8, 24, 30):
+                layer, _ = tuning_for("some/untuned-model", spec, depth)
+                self.assertTrue(1 <= layer < depth, (spec.id, depth, layer))
+            # A tuned entry deeper than a shallow model is clamped below its depth too.
+            layer, _ = tuning_for("Qwen/Qwen2.5-0.5B-Instruct", spec, 8)
+            self.assertLess(layer, 8)

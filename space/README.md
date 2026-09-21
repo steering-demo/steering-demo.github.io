@@ -13,7 +13,7 @@ models:
 
 # Steering showcase — live API
 
-Backs the interactive explainer **Inside the Model: Steering Its Next Move**.
+Backs the interactive **Representation Steering Demo**.
 
 `run_scenario(scenario_id)` returns JSON for all nine alpha states of one scenario: the model's
 real next-token distribution at the position after the fixed prefix, and the continuation the

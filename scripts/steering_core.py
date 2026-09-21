@@ -62,6 +62,24 @@ def num_layers(model) -> int:
     return len(decoder_layers(model))
 
 
+def check_layer(model, layer: int) -> None:
+    """
+    Rejects a layer at which the direction and the intervention would not share a tensor.
+
+    `hidden_states[i]` is the output of `decoder_layers[i - 1]` for every block but the last. The
+    final entry of `hidden_states` is taken *after* the model's closing norm, so at
+    `layer == num_layers` the direction would be estimated on the normed tensor and then added to
+    the un-normed block output - two different quantities. Measured on Qwen2.5-0.5B: layers 1-23
+    agree exactly, layer 24 differs by 1.7e+02.
+    """
+    depth = num_layers(model)
+    if not 1 <= layer < depth:
+        raise ValueError(
+            f"layer must be between 1 and {depth - 1} for this model: hidden_states[{depth}] is "
+            f"the post-norm output, not a block output. Got {layer}."
+        )
+
+
 def build_context(tokenizer, prompt: str, prefix: str) -> List[int]:
     """
     Token ids for the fixed prompt plus the fixed response prefix.
@@ -116,6 +134,7 @@ def steering_vector(
 
     `layer` indexes `hidden_states`, so layer 1 is the output of the first decoder block.
     """
+    check_layer(model, layer)
     base = build_context(tokenizer, prompt, prefix)
 
     def mean_activation(examples: Sequence[str]) -> torch.Tensor:
@@ -183,6 +202,7 @@ def measure_states(
     Set `generate=False` during a layer sweep: the next-token distribution alone is enough to
     score a layer, and skipping generation makes the sweep many times faster.
     """
+    check_layer(model, layer)
     base = build_context(tokenizer, prompt, prefix)
     ids = torch.tensor([base], device=model.device)
     attention_mask = torch.ones_like(ids)

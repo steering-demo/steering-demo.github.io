@@ -84,7 +84,7 @@ test.describe('representation steering showcase', () => {
 
     await page.goto(PAGE);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Explore Representation Steering',
+      'Representation Steering Demo',
     );
     await expect(page.getByText(/Precomputed results/)).toBeVisible();
     await page.waitForTimeout(500);

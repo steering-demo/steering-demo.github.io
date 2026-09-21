@@ -197,7 +197,7 @@ own GitHub Pages site and add one link to the portfolio's navigation or research
 
 ```html
 <a href="https://steering-demo.github.io/">
-  Interactive demo: Inside the Model — Steering Its Next Move
+  Representation Steering Demo
 </a>
 ```
 

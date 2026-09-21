@@ -31,8 +31,8 @@ export function HowItWorks({ identity }: HowItWorksProps) {
 
       <div className="space-y-3 border-t border-[var(--color-line)] px-4 py-4 text-[14px] leading-relaxed text-[var(--color-ink-2)]">
         <p>
-          Representation steering changes a model&rsquo;s internal activations during generation.
-          Here a steering vector <Sym>v</Sym> is added to a hidden representation <Sym>h</Sym> at a
+          Representation steering &mdash; also called activation steering &mdash; changes a
+          model&rsquo;s internal activations during generation. Here a steering vector <Sym>v</Sym> is added to a hidden representation <Sym>h</Sym> at a
           selected layer: <Sym>h&#8242; = h + &alpha;cv</Sym>. The slider controls{' '}
           <Sym>&alpha;</Sym>. <Sym>c</Sym> is a fixed per-scenario coefficient, shown in the badge,
           so <Sym>c</Sym>&nbsp;=&nbsp;2 at <Sym>&alpha;</Sym>&nbsp;=&nbsp;1 means the intervention

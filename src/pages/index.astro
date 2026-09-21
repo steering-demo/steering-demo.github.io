@@ -3,9 +3,9 @@ import Base from '../layouts/Base.astro';
 import { SteeringShowcase } from '../components/SteeringShowcase';
 import { provenance, scenarios } from '../data/scenarios';
 
-const title = 'Explore Representation Steering';
+const title = 'Representation Steering Demo';
 const description =
-  'An interactive explainer for representation steering. The prompt stays fixed while a steering vector is added to the model\'s internal representation, and the next-token probabilities and the response change with it. Precomputed measurements from a small open-weights model.';
+  'An interactive demo of representation steering (activation steering). The prompt stays fixed while a steering vector is added to the model\'s internal representation, and the next-token probabilities and the response change with it. Measurements from a small open-weights model, with live re-measurement on a Hugging Face Space.';
 
 // The Hugging Face Space that runs the model. With one set, the page recomputes each scenario
 // live; without one, it ships the recorded measurements alone.
@@ -35,6 +35,16 @@ const spaceUrl =
       <p class="mt-3 text-[16px] leading-relaxed text-[var(--color-ink-2)] sm:text-[17px]">
         Move the slider to see how steering changes a model&rsquo;s response to the same prompt.
         Every number below is measured, and the badge says where each one came from.
+        {spaceUrl && (
+          <>
+            {' '}The saved examples were measured in advance; <strong class="font-medium text-[var(--color-ink)]">Run</strong> re-measures
+            any of them, or a prompt of your own, live on a{' '}
+            <a class="underline underline-offset-2 hover:text-[var(--color-ink)]" href={spaceUrl}>
+              Hugging Face Space
+            </a>
+            .
+          </>
+        )}
       </p>
     </header>
 

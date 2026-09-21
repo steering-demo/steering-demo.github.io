@@ -148,10 +148,13 @@ REFERENCE_DEPTH = {
 
 def tuning_for(model_id: str, spec: "ScenarioSpec", depth: int):
     """(layer, coefficient) for this scenario on this model."""
+    # The last block is never a valid target: its hidden_states entry is post-norm, so a hook
+    # there would add the direction to a different tensor than the one it was measured on.
+    top = max(1, depth - 1)
     tuned = TUNING.get(model_id, {}).get(spec.id)
     if tuned:
-        return min(tuned[0], depth), tuned[1]
+        return min(tuned[0], top), tuned[1]
     # Untuned: keep the authored coefficient and place the layer at the same relative depth.
     reference = REFERENCE_DEPTH.get("Qwen/Qwen2.5-0.5B-Instruct", 24)
     fraction = spec.layer / reference
-    return max(1, min(depth, round(depth * fraction))), spec.scale
+    return max(1, min(top, round(depth * fraction))), spec.scale
